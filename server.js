@@ -10,6 +10,24 @@
 require("dotenv").config();
 const express = require("express");
 const axios   = require("axios");
+const http    = require('http');
+const { Server } = require('socket.io');
+
+const io = new Server(server, {
+  cors: {
+    origin: "*",
+    methods: ["GET", "POST"]
+  }
+});
+
+io.on('connection', (socket) => {
+  console.log(`🔌  Client connected: ${socket.id}`);
+
+  socket.on('disconnect', () => {
+    clearInterval(timer);
+    console.log(`❌  Client disconnected: ${socket.id}`);
+  });
+});
 
 const app  = express();
 const PORT = 3000;
@@ -230,6 +248,7 @@ async function detectorLoop() {
         );
         state.opportunities.unshift(...opps);
         state.opportunities = state.opportunities.slice(0, 100);
+        io.emit("arb-opportunity", opps);
       } else {
         console.log("⏳  Nothing profitable this round.");
       }
