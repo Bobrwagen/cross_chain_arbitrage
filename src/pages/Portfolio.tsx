@@ -1,29 +1,21 @@
-import React from 'react'
-import { useAccount, useBalance } from 'wagmi'
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Activity,
-  ArrowUpRight,
-  ArrowDownRight,
-  AlertCircle
-} from 'lucide-react'
+import { useAccount, useBalance } from 'wagmi';
+import { DollarSign, Activity, AlertCircle } from 'lucide-react';
+import { useTradesStore } from '../hooks/useTradesStore';
 
 export default function Portfolio() {
-  const { address, isConnected } = useAccount()
+  const { address, isConnected } = useAccount();
   const { data: ethBalance } = useBalance({
     address: address,
     chainId: 1, // Ethereum mainnet
-  })
+  });
   const { data: arbitrumBalance } = useBalance({
     address: address,
     chainId: 42161, // Arbitrum One
-  })
+  });
 
   // For Sui and Solana, we'll show placeholder since they need different SDKs
-  const suiBalance = isConnected ? "0.0 SUI" : "Connect wallet to display amount"
-  const solanaBalance = isConnected ? "0.0 SOL" : "Connect wallet to display amount"
+  const suiBalance = isConnected ? '0.0 SUI' : 'Connect wallet to display amount';
+  const solanaBalance = isConnected ? '0.0 SOL' : 'Connect wallet to display amount';
 
   const chainBalances = [
     {
@@ -50,11 +42,14 @@ export default function Portfolio() {
       value: 'Connect wallet to display amount',
       chainId: 'solana',
     },
-  ]
+  ];
 
-  const totalValue = isConnected && ethBalance && arbitrumBalance 
+  const totalValue = isConnected && ethBalance && arbitrumBalance
     ? (Number(ethBalance.formatted || 0) + Number(arbitrumBalance.formatted || 0)) * 2000 // Approximate ETH price
-    : 0
+    : 0;
+
+  // Zustand trades store
+  const trades = useTradesStore((state) => state.trades);
 
   if (!isConnected) {
     return (
@@ -67,7 +62,7 @@ export default function Portfolio() {
           </p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -148,18 +143,53 @@ export default function Portfolio() {
             <h2 className="text-lg font-semibold text-white">Trading Activity</h2>
           </div>
           <div className="p-6">
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-secondary-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Activity className="h-8 w-8 text-secondary-400" />
+            {trades.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="w-16 h-16 bg-secondary-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Activity className="h-8 w-8 text-secondary-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-white mb-2">No Trading History</h3>
+                <p className="text-secondary-400">
+                  Start arbitrage trading to see your activity here
+                </p>
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">No Trading History</h3>
-              <p className="text-secondary-400">
-                Start arbitrage trading to see your activity here
-              </p>
-            </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-secondary-700">
+                  <thead>
+                    <tr>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-secondary-400 uppercase tracking-wider">Time</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-secondary-400 uppercase tracking-wider">Option</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-secondary-400 uppercase tracking-wider">Profit (USD)</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-secondary-400 uppercase tracking-wider">Buy On</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-secondary-400 uppercase tracking-wider">Hedge On</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-secondary-400 uppercase tracking-wider">Bridge</th>
+                      <th className="px-4 py-2 text-left text-xs font-medium text-secondary-400 uppercase tracking-wider">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-secondary-700">
+                    {trades.map((trade) => (
+                      <tr key={trade.id}>
+                        <td className="px-4 py-2 text-white">{new Date(trade.timestamp).toLocaleString()}</td>
+                        <td className="px-4 py-2 text-white">{trade.optionSymbol}</td>
+                        <td className="px-4 py-2 text-white">${trade.profitUsd.toFixed(2)}</td>
+                        <td className="px-4 py-2 text-white">{trade.buyOn}</td>
+                        <td className="px-4 py-2 text-white">{trade.hedgeOn}</td>
+                        <td className="px-4 py-2 text-white">{trade.bridgeTo || '-'}</td>
+                        <td className="px-4 py-2 text-white">
+                          <span className={`px-2 py-1 rounded text-xs font-semibold ${trade.status === 'executed' ? 'bg-green-600/30 text-green-400' : 'bg-red-600/30 text-red-400'}`}>
+                            {trade.status.charAt(0).toUpperCase() + trade.status.slice(1)}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         </div>
       </div>
     </div>
-  )
-} 
+  );
+}

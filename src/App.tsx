@@ -1,7 +1,7 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { WagmiConfig, createConfig, mainnet } from 'wagmi';
-import { createPublicClient, http } from 'viem';
+import { WagmiConfig, createConfig, configureChains, sepolia } from 'wagmi';
+import { publicProvider } from 'wagmi/providers/public';
 import { RainbowKitProvider, getDefaultWallets, connectorsForWallets } from '@rainbow-me/rainbowkit';
 import '@rainbow-me/rainbowkit/styles.css';
 
@@ -11,7 +11,7 @@ import Arbitrage from './pages/Arbitrage'
 import Portfolio from './pages/Portfolio'
 import Settings from './pages/Settings'
 
-// Define Arbitrum chain manually since it's not exported
+// Define Arbitrum and Sepolia chains
 const arbitrum = {
   id: 42161,
   name: 'Arbitrum One',
@@ -30,10 +30,25 @@ const arbitrum = {
   },
 } as const;
 
+const sepoliaChain = {
+  ...sepolia,
+  rpcUrls: {
+    default: { http: ['https://rpc.sepolia.org'] },
+    public: { http: ['https://rpc.sepolia.org'] },
+  },
+  blockExplorers: {
+    default: { name: 'Etherscan', url: 'https://sepolia.etherscan.io' },
+  },
+};
+
+const { chains, publicClient } = configureChains(
+  [sepoliaChain, arbitrum],
+  [publicProvider()]
+);
 const { wallets } = getDefaultWallets({
   appName: 'Cross Chain Arbitrage',
-  projectId: 'demo-project-id', // This is a demo ID - replace with real one for production
-  chains: [mainnet, arbitrum],
+  projectId: 'demo-project-id',
+  chains,
 });
 
 const connectors = connectorsForWallets([...wallets]);
@@ -41,16 +56,13 @@ const connectors = connectorsForWallets([...wallets]);
 const config = createConfig({
   autoConnect: true,
   connectors,
-  publicClient: createPublicClient({
-    chain: mainnet,
-    transport: http(),
-  }),
+  publicClient,
 });
 
 function App() {
   return (
     <WagmiConfig config={config}>
-      <RainbowKitProvider chains={[mainnet, arbitrum]}>
+      <RainbowKitProvider chains={chains}>
         <div className="min-h-screen bg-gray-50">
           <Layout>
             <Routes>

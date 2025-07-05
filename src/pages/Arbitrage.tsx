@@ -1,219 +1,355 @@
-import React, { useState } from 'react'
-import { useSpotPrice } from '../hooks/useprices'
-import { useAccount, useBalance } from 'wagmi'
-import { 
-  Search, 
-  TrendingUp, 
-  ArrowRight,
-  AlertCircle,
-  CheckCircle
-  //hallöle
-  //mau mau
-} from 'lucide-react'
+import React, { useState } from 'react';
+import { useTradesStore } from '../hooks/useTradesStore';
+import { BalancesGrid } from '../components/BalancesGrid';
 
+// --- Arbitrage Page ---
 export default function Arbitrage() {
-  const { address, isConnected } = useAccount()
-  const { data: ethBalance } = useBalance({
-    address: address,
-    chainId: 1, // Ethereum mainnet
-  })
-  const { data: arbitrumBalance } = useBalance({
-    address: address,
-    chainId: 42161, // Arbitrum One
-  })
 
-  // For Sui and Solana, we'll show placeholder since they need different SDKs
-  const suiBalance = isConnected ? "0.0 SUI" : "Connect wallet to display amount"
-  const solanaBalance = isConnected ? "0.0 SOL" : "Connect wallet to display amount"
+// --- Types ---
+type Opportunity = {
+  id: string;
+  optionSymbol: string;
+  strike: number;
+  expiry: string;
+  iv: number;
+  delta: number;
+  gamma: number;
+  buyOn: string;
+  hedgeOn: string;
+  bridgeNeeded: boolean;
+  bridgeTo?: string;
+  expectedProfitUsd: number;
+};
 
-  const [selectedOpportunity, setSelectedOpportunity] = useState<number | null>(null)
-  const [amount, setAmount] = useState('')
-  const [fromToken, setFromToken] = useState('0xEeeeEeeeEeEeeEeEeEeeEEEeeeeEeeeeeeeEEeE') // ETH default
-  const [toToken, setToToken] = useState('0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48') // USDC default
-  const [isExecuting, setIsExecuting] = useState(false)
+// --- Stepper ---
+const Stepper = ({ steps, currentStep }: { steps: string[]; currentStep: number }) => (
+  <ol className="flex flex-col gap-2 my-4">
+    {steps.map((step, idx) => (
+      <li key={idx} className={`flex items-center gap-2 ${idx === currentStep ? 'font-bold text-primary-400' : idx < currentStep ? 'text-green-400' : 'text-secondary-400'}`}> 
+        <span className={`w-6 h-6 flex items-center justify-center rounded-full border-2 ${idx < currentStep ? 'border-green-400 bg-green-400 text-white' : idx === currentStep ? 'border-primary-400 bg-primary-400 text-white' : 'border-secondary-400 bg-secondary-900 text-secondary-400'}`}>{idx + 1}</span>
+        <span>{step}</span>
+      </li>
+    ))}
+  </ol>
+);
 
-  // Convert amount to Wei (if ETH, else just pass as is for demo)
-  const amountInWei = amount ? (BigInt(Math.floor(Number(amount) * 1e18)).toString()) : ''
-  const { data: spotPrice, isLoading: priceLoading, error: priceError } = useSpotPrice({
-    fromToken,
-    toToken,
-    amount: amountInWei,
-    chainId: 1,
-  })
-
-  const chainBalances = [
-    {
-      name: 'Ethereum',
-      balance: isConnected ? `${ethBalance?.formatted || '0.0'} ${ethBalance?.symbol || 'ETH'}` : 'Connect wallet to display amount',
-      chainId: 1,
-    },
-    {
-      name: 'Arbitrum',
-      balance: isConnected ? `${arbitrumBalance?.formatted || '0.0'} ${arbitrumBalance?.symbol || 'ETH'}` : 'Connect wallet to display amount',
-      chainId: 42161,
-    },
-    {
-      name: 'Sui',
-      balance: suiBalance,
-      chainId: 'sui',
-    },
-    {
-      name: 'Solana',
-      balance: solanaBalance,
-      chainId: 'solana',
-    },
-  ]
-
-  const handleExecute = async () => {
-    if (!isConnected) {
-      alert('Please connect your wallet first')
-      return
-    }
-    
-    if (!amount || Number(amount) <= 0) {
-      alert('Please enter a valid amount')
-      return
-    }
-
-    setIsExecuting(true)
-    // Simulate transaction
-    setTimeout(() => {
-      setIsExecuting(false)
-      alert('Arbitrage executed successfully!')
-      setAmount('')
-      setSelectedOpportunity(null)
-    }, 2000)
-  }
-
-  if (!isConnected) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="text-center">
-          <AlertCircle className="h-16 w-16 text-secondary-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-white mb-2">Wallet Not Connected</h2>
-          <p className="text-secondary-400 mb-4">
-            Connect your wallet to start arbitrage trading
-          </p>
+// --- Execution Modal ---
+const ExecutionModal = ({
+  open,
+  onClose,
+  opportunity,
+  steps,
+  currentStep,
+  beforeAfter,
+  logs,
+  onExecute,
+  executing
+}: {
+  open: boolean;
+  onClose: () => void;
+  opportunity: Opportunity | null;
+  steps: string[];
+  currentStep: number;
+  beforeAfter: { before: string; after: string };
+  logs: string[];
+  onExecute: () => void;
+  executing: boolean;
+}) => {
+  if (!open || !opportunity) return null;
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+      <div className="bg-secondary-900 rounded-lg shadow-xl p-6 w-full max-w-md relative">
+        <button className="absolute top-2 right-2 text-secondary-400 hover:text-white" onClick={onClose} disabled={executing}>&times;</button>
+        <h2 className="text-xl font-bold text-white mb-2">Execute Arbitrage</h2>
+        <Stepper steps={steps} currentStep={currentStep} />
+        <div className="bg-secondary-800 rounded p-3 mb-2">
+          <div className="text-sm text-secondary-400">Before:</div>
+          <div className="text-white font-mono">{beforeAfter.before}</div>
+          <div className="text-sm text-secondary-400 mt-2">After:</div>
+          <div className="text-white font-mono">{beforeAfter.after}</div>
         </div>
+        <div className="text-xs text-secondary-400 mb-2">Logs:</div>
+        <div className="bg-secondary-950 rounded p-2 mb-2 max-h-24 overflow-y-auto text-xs text-secondary-300">
+          {logs.length === 0 ? <div>No logs yet.</div> : logs.map((log, i) => <div key={i}>{log}</div>)}
+        </div>
+        <button
+          className={`w-full py-2 rounded bg-primary-500 text-white font-bold mt-2 ${executing ? 'opacity-60 cursor-not-allowed' : ''}`}
+          onClick={onExecute}
+          disabled={executing}
+        >
+          {executing ? 'Executing...' : 'Start Execution'}
+        </button>
       </div>
-    )
+    </div>
+  );
+};
+
+// ...existing code...
+  // Opportunities state (dummy + user-created)
+  const [opportunities, setOpportunities] = useState<Opportunity[]>([
+    {
+      id: '1',
+      optionSymbol: 'ETH-2025-07-25-2000C',
+      strike: 2000,
+      expiry: '2025-07-25',
+      iv: 0.45,
+      delta: 0.55,
+      gamma: 0.02,
+      buyOn: 'Lyra',
+      hedgeOn: 'Uniswap',
+      bridgeNeeded: true,
+      bridgeTo: 'Ethereum',
+      expectedProfitUsd: 75,
+    },
+    {
+      id: '2',
+      optionSymbol: 'ETH-2025-07-25-1800P',
+      strike: 1800,
+      expiry: '2025-07-25',
+      iv: 0.48,
+      delta: -0.35,
+      gamma: 0.03,
+      buyOn: 'Lyra',
+      hedgeOn: 'Uniswap',
+      bridgeNeeded: false,
+      expectedProfitUsd: 42,
+    },
+  ]);
+
+  // State for new custom opportunity form
+  const [showCreate, setShowCreate] = useState(false);
+  const [newOpp, setNewOpp] = useState<Omit<Opportunity, 'id'>>({
+    optionSymbol: '',
+    strike: 2000,
+    expiry: '',
+    iv: 0.4,
+    delta: 0,
+    gamma: 0.02,
+    buyOn: '',
+    hedgeOn: '',
+    bridgeNeeded: false,
+    bridgeTo: '',
+    expectedProfitUsd: 0,
+  });
+
+  function handleCreateOpportunity(e: React.FormEvent) {
+    e.preventDefault();
+    setOpportunities((prev) => [
+      {
+        id: `${Date.now()}`,
+        ...newOpp,
+        bridgeTo: newOpp.bridgeNeeded ? newOpp.bridgeTo : undefined,
+      },
+      ...prev,
+    ]);
+    setShowCreate(false);
+    setNewOpp({
+      optionSymbol: '',
+      strike: 2000,
+      expiry: '',
+      iv: 0.4,
+      delta: 0,
+      gamma: 0.02,
+      buyOn: '',
+      hedgeOn: '',
+      bridgeNeeded: false,
+      bridgeTo: '',
+      expectedProfitUsd: 0,
+    });
   }
+
+  // Execution modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalOpportunity, setModalOpportunity] = useState<Opportunity | null>(null);
+  const [execStepIdx, setExecStepIdx] = useState(0);
+  const [execRunning, setExecRunning] = useState(false);
+  const [logs, setLogs] = useState<string[]>([]);
+
+  // Steps for modal
+  const stepsForModal = modalOpportunity
+    ? [
+        `Buy option on ${modalOpportunity.buyOn}`,
+        `Hedge spot on ${modalOpportunity.hedgeOn}`,
+        ...(modalOpportunity.bridgeNeeded ? [`Bridge profit to ${modalOpportunity.bridgeTo || 'target chain'}`] : []),
+      ]
+    : [];
+
+  // Dummy before/after balances
+  const beforeAfter = { before: 'ETH: 1.00 | USDC: 0.00', after: 'ETH: 0.90 | USDC: 5.00 (profit)' };
+
+  // Simulate step-by-step execution and add trade to global store
+  const addTrade = useTradesStore((s) => s.addTrade);
+  const handleExecute = () => {
+    if (!modalOpportunity) return;
+    setExecRunning(true);
+    setLogs([]);
+    let i = 0;
+    function nextStep() {
+      if (!modalOpportunity) return;
+      setExecStepIdx(i);
+      setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Starting: ${stepsForModal[i]}`]);
+      setTimeout(() => {
+        setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Success: ${stepsForModal[i]}`]);
+        i++;
+        if (i < stepsForModal.length) {
+          nextStep();
+        } else {
+          setExecRunning(false);
+          setLogs((prev) => [...prev, `[${new Date().toLocaleTimeString()}] Arbitrage complete!`]);
+          // Add trade to global store
+          addTrade({
+            id: `${modalOpportunity.id}-${Date.now()}`,
+            timestamp: Date.now(),
+            optionSymbol: modalOpportunity.optionSymbol,
+            profitUsd: modalOpportunity.expectedProfitUsd,
+            buyOn: modalOpportunity.buyOn,
+            hedgeOn: modalOpportunity.hedgeOn,
+            bridgeTo: modalOpportunity.bridgeNeeded ? modalOpportunity.bridgeTo : undefined,
+            status: 'executed',
+          });
+          setTimeout(() => setModalOpen(false), 1000);
+        }
+      }, 1000);
+    }
+    nextStep();
+  };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Arbitrage Trading</h1>
-          <p className="text-secondary-400">
-            Execute cross-chain arbitrage opportunities
-          </p>
-        </div>
-      </div>
-
-      {/* Chain Balances */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {chainBalances.map((chain) => (
-          <div
-            key={chain.name}
-            className="rounded-lg bg-secondary-800 p-6 border border-secondary-700"
+    <div className="space-y-8 max-w-5xl mx-auto px-2 py-8">
+      <h1 className="text-3xl md:text-4xl font-bold text-white mb-2 text-center">Arbitrage Dashboard</h1>
+      {/* Show ETH balance (Sepolia as ETH) */}
+      <BalancesGrid />
+      {/* Opportunities Block */}
+      <div className="w-full max-w-3xl mx-auto mt-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-2xl font-bold text-white">Opportunities</h2>
+          <button
+            className="px-4 py-2 rounded bg-primary-500 text-white font-semibold hover:bg-primary-600"
+            onClick={() => setShowCreate((v) => !v)}
           >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-secondary-400">{chain.name}</p>
-                <p className="text-2xl font-bold text-white">{chain.balance}</p>
-              </div>
-              <div className="p-2 rounded-lg bg-primary-500/10">
-                <TrendingUp className="h-6 w-6 text-primary-500" />
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Arbitrage Price Interface */}
-      <div className="rounded-lg bg-secondary-800 border border-secondary-700 p-6 mb-6">
-        <h2 className="text-lg font-semibold text-white mb-2">Live Price (1inch API)</h2>
-        <div className="flex flex-col md:flex-row md:items-end gap-4">
-          <div className="flex flex-col">
-            <label className="text-secondary-400 text-sm mb-1">From Token (Address)</label>
-            <input
-              className="rounded border border-secondary-700 bg-secondary-900 text-white px-3 py-2 text-sm"
-              value={fromToken}
-              onChange={e => setFromToken(e.target.value)}
-              placeholder="From Token Address"
-            />
-          </div>
-          <div className="flex flex-col">
-            <label className="text-secondary-400 text-sm mb-1">To Token (Address)</label>
-            <input
-              className="rounded border border-secondary-700 bg-secondary-900 text-white px-3 py-2 text-sm"
-              value={toToken}
-              onChange={e => setToToken(e.target.value)}
-              placeholder="To Token Address"
-            />
-          </div>
-          <div className="flex flex-col">
-            <label className="text-secondary-400 text-sm mb-1">Amount (ETH)</label>
-            <input
-              className="rounded border border-secondary-700 bg-secondary-900 text-white px-3 py-2 text-sm"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-              placeholder="Amount in ETH"
-              type="number"
-              min="0"
-            />
-          </div>
+            {showCreate ? 'Cancel' : 'Create Opportunity'}
+          </button>
         </div>
-        <div className="mt-4">
-          {priceLoading ? (
-            <span className="text-secondary-400">Loading price...</span>
-          ) : priceError ? (
-            <span className="text-red-500">Error: {priceError.message}</span>
-          ) : spotPrice ? (
-            <div className="text-white text-lg">
-              1 {spotPrice.fromToken.symbol || 'Token'} ≈ {(Number(spotPrice.toTokenAmount) / 10 ** (spotPrice.toToken.decimals || 6)).toPrecision(6)} {spotPrice.toToken.symbol || 'Token'}
+        {showCreate && (
+          <form className="bg-secondary-800 border border-secondary-700 rounded-lg p-6 mb-6 grid grid-cols-1 md:grid-cols-2 gap-4" onSubmit={handleCreateOpportunity}>
+            <div>
+              <label className="block text-secondary-400 text-xs mb-1">Option Symbol</label>
+              <input className="w-full rounded bg-secondary-900 text-white p-2 mb-2" required value={newOpp.optionSymbol} onChange={e => setNewOpp(o => ({ ...o, optionSymbol: e.target.value }))} />
+              <label className="block text-secondary-400 text-xs mb-1">Strike</label>
+              <input className="w-full rounded bg-secondary-900 text-white p-2 mb-2" type="number" required value={newOpp.strike} onChange={e => setNewOpp(o => ({ ...o, strike: Number(e.target.value) }))} />
+              <label className="block text-secondary-400 text-xs mb-1">Expiry</label>
+              <input className="w-full rounded bg-secondary-900 text-white p-2 mb-2" type="date" required value={newOpp.expiry} onChange={e => setNewOpp(o => ({ ...o, expiry: e.target.value }))} />
+              <label className="block text-secondary-400 text-xs mb-1">IV</label>
+              <input className="w-full rounded bg-secondary-900 text-white p-2 mb-2" type="number" step="0.01" required value={newOpp.iv} onChange={e => setNewOpp(o => ({ ...o, iv: Number(e.target.value) }))} />
+              <label className="block text-secondary-400 text-xs mb-1">Delta</label>
+              <input className="w-full rounded bg-secondary-900 text-white p-2 mb-2" type="number" step="0.01" required value={newOpp.delta} onChange={e => setNewOpp(o => ({ ...o, delta: Number(e.target.value) }))} />
+              <label className="block text-secondary-400 text-xs mb-1">Gamma</label>
+              <input className="w-full rounded bg-secondary-900 text-white p-2 mb-2" type="number" step="0.01" required value={newOpp.gamma} onChange={e => setNewOpp(o => ({ ...o, gamma: Number(e.target.value) }))} />
             </div>
+            <div>
+              <label className="block text-secondary-400 text-xs mb-1">Buy On</label>
+              <input className="w-full rounded bg-secondary-900 text-white p-2 mb-2" required value={newOpp.buyOn} onChange={e => setNewOpp(o => ({ ...o, buyOn: e.target.value }))} />
+              <label className="block text-secondary-400 text-xs mb-1">Hedge On</label>
+              <input className="w-full rounded bg-secondary-900 text-white p-2 mb-2" required value={newOpp.hedgeOn} onChange={e => setNewOpp(o => ({ ...o, hedgeOn: e.target.value }))} />
+              <label className="block text-secondary-400 text-xs mb-1">Bridge Needed</label>
+              <input type="checkbox" className="mr-2" checked={newOpp.bridgeNeeded} onChange={e => setNewOpp(o => ({ ...o, bridgeNeeded: e.target.checked }))} />
+              <span className="text-secondary-400 text-xs">If checked, specify Bridge To</span>
+              {newOpp.bridgeNeeded && (
+                <input className="w-full rounded bg-secondary-900 text-white p-2 mb-2 mt-2" placeholder="Bridge To" value={newOpp.bridgeTo} onChange={e => setNewOpp(o => ({ ...o, bridgeTo: e.target.value }))} />
+              )}
+              <label className="block text-secondary-400 text-xs mb-1 mt-2">Expected Profit (USD)</label>
+              <input className="w-full rounded bg-secondary-900 text-white p-2 mb-2" type="number" required value={newOpp.expectedProfitUsd} onChange={e => setNewOpp(o => ({ ...o, expectedProfitUsd: Number(e.target.value) }))} />
+              <button type="submit" className="mt-4 w-full py-2 rounded bg-green-600 text-white font-bold">Add Opportunity</button>
+            </div>
+          </form>
+        )}
+        <div className="grid gap-6">
+          {opportunities.map((opp) => (
+            <div key={opp.id} className="bg-secondary-800 border border-secondary-700 rounded-lg p-6 flex flex-col gap-3">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+                <div>
+                  <div className="text-lg font-bold text-white">Profit Potential: <span className="text-green-400">${opp.expectedProfitUsd}</span> USD</div>
+                  <div className="text-secondary-300 text-sm mt-1">Option: <span className="font-semibold">{opp.optionSymbol}</span> | Strike: {opp.strike} | Expiry: {opp.expiry}</div>
+                  <div className="text-secondary-300 text-sm">IV: {opp.iv} | Delta: {opp.delta} | Gamma: {opp.gamma}</div>
+                </div>
+                <button
+                  className="px-6 py-2 rounded bg-primary-500 text-white font-bold text-lg hover:bg-primary-600 mt-2 md:mt-0"
+                  onClick={() => {
+                    setModalOpportunity(opp);
+                    setModalOpen(true);
+                    setExecStepIdx(0);
+                    setLogs([]);
+                  }}
+                >
+                  Execute Arbitrage
+                </button>
+              </div>
+              <div className="flex flex-col gap-1 mt-2">
+                <span className="text-secondary-400 text-sm">Step 1: Buy option on {opp.buyOn}</span>
+                <span className="text-secondary-400 text-sm">Step 2: Hedge spot on {opp.hedgeOn}</span>
+                {opp.bridgeNeeded && (
+                  <span className="text-secondary-400 text-sm">Step 3: Bridge profit to {opp.bridgeTo || 'target chain'}</span>
+                )}
+              </div>
+              <div className="flex flex-col md:flex-row gap-4 mt-2">
+                <div className="flex-1">
+                  <div className="text-secondary-400 text-xs mb-1">Funds Impact</div>
+                  <table className="w-full text-xs text-left bg-secondary-900 rounded">
+                    <thead>
+                      <tr className="text-secondary-400">
+                        <th></th>
+                        <th>ETH</th>
+                        <th>USDC</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="text-secondary-400">Before</td>
+                        <td>1.00</td>
+                        <td>0.00</td>
+                      </tr>
+                      <tr>
+                        <td className="text-secondary-400">After</td>
+                        <td>0.90</td>
+                        <td>5.00</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+                <div className="flex-1">
+                  <div className="text-secondary-400 text-xs mb-1">Execution Details</div>
+                  <div className="text-secondary-400 text-xs">Risk: Placeholder</div>
+                  <div className="text-secondary-400 text-xs">Latency: 1.2s</div>
+                  <div className="text-secondary-400 text-xs">Fees: $2.00</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Execution Modal */}
+      <ExecutionModal
+        open={modalOpen && !!modalOpportunity}
+        onClose={() => { if (!execRunning) setModalOpen(false); }}
+        opportunity={modalOpportunity}
+        onExecute={handleExecute}
+        executing={execRunning}
+        currentStep={execStepIdx}
+        steps={stepsForModal}
+        beforeAfter={beforeAfter}
+        logs={logs}
+      />
+      {/* Logs Panel */}
+      <div className="w-full max-w-3xl mx-auto mt-8">
+        <h2 className="text-lg font-semibold text-white mb-2">Logs</h2>
+        <div className="rounded-lg bg-secondary-800 border border-secondary-700 p-4 max-h-64 overflow-y-auto text-sm text-secondary-400 space-y-1">
+          {logs.length === 0 ? (
+            <div className="text-center text-secondary-500">No logs yet.</div>
           ) : (
-            <span className="text-secondary-400">Enter amount and tokens to get price.</span>
+            logs.map((log, idx) => <div key={idx}>{log}</div>)
           )}
         </div>
       </div>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Available Opportunities */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-white">Available Opportunities</h2>
-          <div className="space-y-3">
-            <div className="p-4 rounded-lg border border-secondary-700 bg-secondary-800">
-              <div className="text-center py-8">
-                <div className="w-16 h-16 bg-secondary-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Search className="h-8 w-8 text-secondary-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-white mb-2">No Opportunities Found</h3>
-                <p className="text-secondary-400">
-                  Monitor the market for arbitrage opportunities
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Execution Panel */}
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold text-white">Execute Trade</h2>
-          <div className="p-6 rounded-lg bg-secondary-800 border border-secondary-700">
-            <div className="text-center py-8">
-              <div className="w-16 h-16 bg-secondary-700 rounded-full flex items-center justify-center mx-auto mb-4">
-                <TrendingUp className="h-8 w-8 text-secondary-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-white mb-2">No Trade Selected</h3>
-              <p className="text-secondary-400">
-                Select an arbitrage opportunity to execute
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
-  )
-} 
+  );
+}
