@@ -13,7 +13,12 @@ const axios   = require("axios");
 const http    = require('http');
 const { Server } = require('socket.io');
 
-const io = new Server(server, {
+
+// --- INIT ---
+const app  = express();
+const PORT = 3000;
+const SCAN_INTERVAL_MS = 15_000;                     // 15 s
+const io = new Server(http.createServer(app), {
   cors: {
     origin: "*",
     methods: ["GET", "POST"]
@@ -29,9 +34,6 @@ io.on('connection', (socket) => {
   });
 });
 
-const app  = express();
-const PORT = 3000;
-const SCAN_INTERVAL_MS = 15_000;                     // 15 s
 
 /* ---------- chains we support ---------------------------- */
 const CHAINS = [
