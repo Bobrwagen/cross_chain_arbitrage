@@ -12,9 +12,13 @@
   },
   "dependencies": {
     "@rainbow-me/rainbowkit": "^1.2.3",
-    "@tanstack/react-query": "^5.81.5",
+    "@types/node": "^24.0.10",
+    "axios": "^1.10.0",
     "clsx": "^2.0.0",
+    "dotenv": "^17.0.1",
+    "@tanstack/react-query": "^5.81.5",
     "ethers": "^6.8.1",
+    "express": "^5.1.0",
     "lucide-react": "^0.294.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -38,7 +42,7 @@
     "eslint-plugin-react-refresh": "^0.4.5",
     "postcss": "^8.4.32",
     "tailwindcss": "^3.3.6",
-    "typescript": "^5.2.2",
+    "typescript": "^5.8.3",
     "vite": "^5.0.8"
   },
   "keywords": [
@@ -49,5 +53,17 @@
     "wallet"
   ],
   "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Bobrwagen/cross_chain_arbitrage.git"
+  },
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/Bobrwagen/cross_chain_arbitrage/issues"
+  },
+  "homepage": "https://github.com/Bobrwagen/cross_chain_arbitrage#readme"
+}
+
   "license": "MIT"
 }
