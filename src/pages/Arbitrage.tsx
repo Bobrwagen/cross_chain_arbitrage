@@ -15,9 +15,12 @@ type Opportunity = {
   delta: number;
   gamma: number;
   buyOn: string;
+  buyChain: string;
   hedgeOn: string;
+  hedgeChain: string;
   bridgeNeeded: boolean;
   bridgeTo?: string;
+  bridgeToChain?: string;
   expectedProfitUsd: number;
 };
 
@@ -96,9 +99,12 @@ const ExecutionModal = ({
       delta: 0.55,
       gamma: 0.02,
       buyOn: 'Lyra',
+      buyChain: 'Sepolia',
       hedgeOn: 'Uniswap',
+      hedgeChain: 'Arbitrum',
       bridgeNeeded: true,
       bridgeTo: 'Ethereum',
+      bridgeToChain: 'Sui',
       expectedProfitUsd: 75,
     },
     {
@@ -110,7 +116,9 @@ const ExecutionModal = ({
       delta: -0.35,
       gamma: 0.03,
       buyOn: 'Lyra',
+      buyChain: 'Sepolia',
       hedgeOn: 'Uniswap',
+      hedgeChain: 'Arbitrum',
       bridgeNeeded: false,
       expectedProfitUsd: 42,
     },
@@ -118,7 +126,8 @@ const ExecutionModal = ({
 
   // State for new custom opportunity form
   const [showCreate, setShowCreate] = useState(false);
-  const [newOpp, setNewOpp] = useState<Omit<Opportunity, 'id'>>({
+  const chainOptions = ['Sepolia', 'Arbitrum', 'Sui', 'Solana'];
+  const [newOpp, setNewOpp] = useState<Omit<Opportunity, 'id' | 'expectedProfitUsd'>>({
     optionSymbol: '',
     strike: 2000,
     expiry: '',
@@ -126,19 +135,29 @@ const ExecutionModal = ({
     delta: 0,
     gamma: 0.02,
     buyOn: '',
+    buyChain: chainOptions[0],
     hedgeOn: '',
+    hedgeChain: chainOptions[1],
     bridgeNeeded: false,
     bridgeTo: '',
-    expectedProfitUsd: 0,
+    bridgeToChain: chainOptions[2],
   });
+
+  function calculateProfit(strike: number, iv: number, delta: number, fees = 2): number {
+    // Simple placeholder formula
+    return Math.max(0, Math.round((strike * iv * Math.abs(delta) * 0.01 - fees) * 100) / 100);
+  }
 
   function handleCreateOpportunity(e: React.FormEvent) {
     e.preventDefault();
+    const profit = calculateProfit(newOpp.strike, newOpp.iv, newOpp.delta);
     setOpportunities((prev) => [
       {
         id: `${Date.now()}`,
         ...newOpp,
         bridgeTo: newOpp.bridgeNeeded ? newOpp.bridgeTo : undefined,
+        bridgeToChain: newOpp.bridgeNeeded ? newOpp.bridgeToChain : undefined,
+        expectedProfitUsd: profit,
       },
       ...prev,
     ]);
@@ -151,10 +170,12 @@ const ExecutionModal = ({
       delta: 0,
       gamma: 0.02,
       buyOn: '',
+      buyChain: chainOptions[0],
       hedgeOn: '',
+      hedgeChain: chainOptions[1],
       bridgeNeeded: false,
       bridgeTo: '',
-      expectedProfitUsd: 0,
+      bridgeToChain: chainOptions[2],
     });
   }
 
@@ -249,16 +270,29 @@ const ExecutionModal = ({
             <div>
               <label className="block text-secondary-400 text-xs mb-1">Buy On</label>
               <input className="w-full rounded bg-secondary-900 text-white p-2 mb-2" required value={newOpp.buyOn} onChange={e => setNewOpp(o => ({ ...o, buyOn: e.target.value }))} />
+              <label className="block text-secondary-400 text-xs mb-1">Buy Chain</label>
+              <select className="w-full rounded bg-secondary-900 text-white p-2 mb-2" value={newOpp.buyChain} onChange={e => setNewOpp(o => ({ ...o, buyChain: e.target.value }))}>
+                {chainOptions.map(chain => <option key={chain} value={chain}>{chain}</option>)}
+              </select>
               <label className="block text-secondary-400 text-xs mb-1">Hedge On</label>
               <input className="w-full rounded bg-secondary-900 text-white p-2 mb-2" required value={newOpp.hedgeOn} onChange={e => setNewOpp(o => ({ ...o, hedgeOn: e.target.value }))} />
+              <label className="block text-secondary-400 text-xs mb-1">Hedge Chain</label>
+              <select className="w-full rounded bg-secondary-900 text-white p-2 mb-2" value={newOpp.hedgeChain} onChange={e => setNewOpp(o => ({ ...o, hedgeChain: e.target.value }))}>
+                {chainOptions.map(chain => <option key={chain} value={chain}>{chain}</option>)}
+              </select>
               <label className="block text-secondary-400 text-xs mb-1">Bridge Needed</label>
               <input type="checkbox" className="mr-2" checked={newOpp.bridgeNeeded} onChange={e => setNewOpp(o => ({ ...o, bridgeNeeded: e.target.checked }))} />
               <span className="text-secondary-400 text-xs">If checked, specify Bridge To</span>
               {newOpp.bridgeNeeded && (
-                <input className="w-full rounded bg-secondary-900 text-white p-2 mb-2 mt-2" placeholder="Bridge To" value={newOpp.bridgeTo} onChange={e => setNewOpp(o => ({ ...o, bridgeTo: e.target.value }))} />
+                <>
+                  <input className="w-full rounded bg-secondary-900 text-white p-2 mb-2 mt-2" placeholder="Bridge To" value={newOpp.bridgeTo} onChange={e => setNewOpp(o => ({ ...o, bridgeTo: e.target.value }))} />
+                  <label className="block text-secondary-400 text-xs mb-1">Bridge To Chain</label>
+                  <select className="w-full rounded bg-secondary-900 text-white p-2 mb-2" value={newOpp.bridgeToChain} onChange={e => setNewOpp(o => ({ ...o, bridgeToChain: e.target.value }))}>
+                    {chainOptions.map(chain => <option key={chain} value={chain}>{chain}</option>)}
+                  </select>
+                </>
               )}
-              <label className="block text-secondary-400 text-xs mb-1 mt-2">Expected Profit (USD)</label>
-              <input className="w-full rounded bg-secondary-900 text-white p-2 mb-2" type="number" required value={newOpp.expectedProfitUsd} onChange={e => setNewOpp(o => ({ ...o, expectedProfitUsd: Number(e.target.value) }))} />
+              <div className="mt-4 text-secondary-400 text-xs">Expected profit will be calculated automatically.</div>
               <button type="submit" className="mt-4 w-full py-2 rounded bg-green-600 text-white font-bold">Add Opportunity</button>
             </div>
           </form>
