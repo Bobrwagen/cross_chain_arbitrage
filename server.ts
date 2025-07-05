@@ -21,11 +21,12 @@ const THRESHOLD: string = "0.5"; // %
 // ---------- 1.  Chain & token table ----------
 // For demo we track WETH/ETH on four chains; addresses per chain if needed.
 // 1inch price endpoint will accept the alias "ETH" for WETH‑wrapped assets.
-const CHAINS = [
+const CHAINS: { chain: number; label: ChainLabel }[] = [
   { chain: 1, label: "ethereum" },
   { chain: 137, label: "polygon" },
   { chain: 42161, label: "arbitrum" },
 ];
+
 
 // ---------- 2.  State ----------
 const state: {
@@ -51,10 +52,12 @@ const headers = {
 };
 
 const amount = 60_000; // for each single chain
-const MD_THRESHOLD: number = 0.05;
-const TIME_THRESHOLD: number = 60;
+// const MD_THRESHOLD: number = 0.05;
+// const TIME_THRESHOLD: number = 60;
 
-const fromToMap = {
+type ChainLabel = 'ethereum' | 'polygon' | 'arbitrum';
+
+const fromToMap: Record<ChainLabel, Record<string, { from: string; to: string }>> = {
   // === ETHEREUM ===
   ethereum: {
     weth_to_weth_arbitrum: {
@@ -135,13 +138,16 @@ async function fetchExchangeRates(
       latencyMs,
       quoteTime: end,
     };
-  } catch (error) {
+  } catch (error: unknown) {
+  if (error instanceof Error) {
     console.error(
       `[Quote Error] ${chain}: ${src.slice(0, 6)} → ${dst.slice(0, 6)}`,
-      error.response?.data || error.message
+      error.message
     );
-    return null;
+  } else {
+    console.error(`[Quote Error] Unknown error`);
   }
+}
 }
 
 async function runExchanges() {
@@ -171,7 +177,8 @@ async function runExchanges() {
   return quotes;
 }
 
-function marginalDifference(q, rev) {
+/*
+function marginalDifference(q, rev) : number  {
   const qIn = Number(q.inputWei);
   const qOut = Number(q.dstAmountWei);
   const revIn = Number(rev.inputWei);
@@ -182,8 +189,8 @@ function marginalDifference(q, rev) {
 
   return Math.min(term1, term2);
 }
-
-function profit_P(q, rev, cost) {
+*/
+function profit_P(q: any, rev: any, cost: bigint): bigint {
   const out_m = BigInt(q.dstAmountWei);
   const in_n = BigInt(rev.inputWei);
   return out_m - in_n - BigInt(cost);
@@ -207,15 +214,13 @@ function determineArbitrage(quotes: any[]) {
     if (!rev) continue;
 
     const now = Date.now();
-    const ageFwdSec = (now - q.quoteTime) / 1000;
-    const ageRevSec = (now - rev.quoteTime) / 1000;
     const latencyDeltaSec = Math.abs(q.latencyMs - rev.latencyMs) / 1000;
 
     //MD
-    const md = marginalDifference(q, rev);
+    // const md = marginalDifference(q, rev);
     const gas_cost = q.gasWei + rev.gasWei;
     const profit = profit_P(q, rev, gas_cost);
-    if (profit > 0) {
+    if (profit > BigInt(0) ) {
       opportunities.push({
         ts: now,
         buyOn: q.fromChain,
@@ -250,9 +255,14 @@ async function runDetection() {
       }
 
       state.lastUpdated = Date.now();
-    } catch (err) {
-      console.error("❌ Error in runDetection:", err.message || err);
-    }
+    } catch (err: unknown) {
+  if (err instanceof Error) {
+    console.error("❌ Error in runDetection:", err.message);
+  } else {
+    console.error("❌ Unknown error in runDetection");
+  }
+}
+
 
     await new Promise((r) => setTimeout(r, 15000)); // wait 15 sec
   }
