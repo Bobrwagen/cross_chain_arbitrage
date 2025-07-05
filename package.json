@@ -10,7 +10,6 @@
     "lint": "eslint . --ext js,jsx,ts,tsx",
     "lint:fix": "eslint . --ext js,jsx,ts,tsx --fix"
   },
-
   "dependencies": {
     "@mysten/sui": "^1.35.0",
     "@rainbow-me/rainbowkit": "^1.2.3",
@@ -28,6 +27,7 @@
     "react-hot-toast": "^2.4.1",
     "react-query": "^3.39.3",
     "react-router-dom": "^6.8.1",
+    "socket.io": "^4.8.1",
     "tailwind-merge": "^2.0.0",
     "viem": "^1.19.9",
     "wagmi": "^1.4.7",
