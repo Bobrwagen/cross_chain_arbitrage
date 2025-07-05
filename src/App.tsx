@@ -11,10 +11,29 @@ import Arbitrage from './pages/Arbitrage'
 import Portfolio from './pages/Portfolio'
 import Settings from './pages/Settings'
 
+// Define Arbitrum chain manually since it's not exported
+const arbitrum = {
+  id: 42161,
+  name: 'Arbitrum One',
+  network: 'arbitrum',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Ether',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    default: { http: ['https://arb1.arbitrum.io/rpc'] },
+    public: { http: ['https://arb1.arbitrum.io/rpc'] },
+  },
+  blockExplorers: {
+    default: { name: 'Arbiscan', url: 'https://arbiscan.io' },
+  },
+} as const;
+
 const { wallets } = getDefaultWallets({
   appName: 'Cross Chain Arbitrage',
   projectId: 'demo-project-id', // This is a demo ID - replace with real one for production
-  chains: [mainnet],
+  chains: [mainnet, arbitrum],
 });
 
 const connectors = connectorsForWallets([...wallets]);
@@ -31,7 +50,7 @@ const config = createConfig({
 function App() {
   return (
     <WagmiConfig config={config}>
-      <RainbowKitProvider chains={[mainnet]}>
+      <RainbowKitProvider chains={[mainnet, arbitrum]}>
         <div className="min-h-screen bg-gray-50">
           <Layout>
             <Routes>

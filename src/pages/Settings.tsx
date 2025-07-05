@@ -27,9 +27,18 @@ interface SettingsSection {
 
 export default function Settings() {
   const { address, isConnected } = useAccount()
-  const { data: balance } = useBalance({
+  const { data: ethBalance } = useBalance({
     address: address,
+    chainId: 1, // Ethereum mainnet
   })
+  const { data: arbitrumBalance } = useBalance({
+    address: address,
+    chainId: 42161, // Arbitrum One
+  })
+
+  // For Sui and Solana, we'll show placeholder since they need different SDKs
+  const suiBalance = isConnected ? "0.0 SUI" : "Connect wallet to display amount"
+  const solanaBalance = isConnected ? "0.0 SOL" : "Connect wallet to display amount"
   
   const [slippageTolerance, setSlippageTolerance] = useState(0.5)
   const [autoExecute, setAutoExecute] = useState(false)
@@ -47,8 +56,23 @@ export default function Settings() {
           type: 'text',
         },
         {
-          name: 'Balance',
-          value: isConnected ? `${balance?.formatted} ${balance?.symbol}` : '0 ETH',
+          name: 'Ethereum Balance',
+          value: isConnected ? `${ethBalance?.formatted || '0.0'} ${ethBalance?.symbol || 'ETH'}` : 'Connect wallet to display amount',
+          type: 'text',
+        },
+        {
+          name: 'Arbitrum Balance',
+          value: isConnected ? `${arbitrumBalance?.formatted || '0.0'} ${arbitrumBalance?.symbol || 'ETH'}` : 'Connect wallet to display amount',
+          type: 'text',
+        },
+        {
+          name: 'Sui Balance',
+          value: suiBalance,
+          type: 'text',
+        },
+        {
+          name: 'Solana Balance',
+          value: solanaBalance,
           type: 'text',
         },
       ],
