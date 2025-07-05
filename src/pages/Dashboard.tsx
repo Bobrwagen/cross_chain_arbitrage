@@ -11,70 +11,45 @@ import {
 
 export default function Dashboard() {
   const { address, isConnected } = useAccount()
-  const { data: balance } = useBalance({
+  const { data: ethBalance } = useBalance({
     address: address,
+    chainId: 1, // Ethereum mainnet
+  })
+  const { data: arbitrumBalance } = useBalance({
+    address: address,
+    chainId: 42161, // Arbitrum One
   })
 
-  const stats = [
+  // For Sui and Solana, we'll show placeholder since they need different SDKs
+  const suiBalance = isConnected ? "0.0 SUI" : "Connect wallet to display amount"
+  const solanaBalance = isConnected ? "0.0 SOL" : "Connect wallet to display amount"
+
+  const chainBalances = [
     {
-      name: 'Total Portfolio Value',
-      value: isConnected ? `$${(Number(balance?.formatted || 0) * 2000).toFixed(2)}` : '$0.00',
-      change: '+12.5%',
-      changeType: 'positive',
-      icon: DollarSign,
+      name: 'Ethereum',
+      balance: isConnected ? `${ethBalance?.formatted || '0.0'} ${ethBalance?.symbol || 'ETH'}` : 'Connect wallet to display amount',
+      chainId: 1,
     },
     {
-      name: '24h P&L',
-      value: isConnected ? '+$1,234.56' : '$0.00',
-      change: '+8.2%',
-      changeType: 'positive',
-      icon: TrendingUp,
+      name: 'Arbitrum',
+      balance: isConnected ? `${arbitrumBalance?.formatted || '0.0'} ${arbitrumBalance?.symbol || 'ETH'}` : 'Connect wallet to display amount',
+      chainId: 42161,
     },
     {
-      name: 'Total Trades',
-      value: '156',
-      change: '+23',
-      changeType: 'positive',
-      icon: Activity,
+      name: 'Sui',
+      balance: suiBalance,
+      chainId: 'sui',
     },
     {
-      name: 'Success Rate',
-      value: '94.2%',
-      change: '+2.1%',
-      changeType: 'positive',
-      icon: TrendingUp,
+      name: 'Solana',
+      balance: solanaBalance,
+      chainId: 'solana',
     },
   ]
 
-  const recentTrades = [
-    {
-      id: 1,
-      token: 'ETH/USDC',
-      type: 'buy',
-      amount: '2.5 ETH',
-      price: '$2,450.00',
-      profit: '+$125.00',
-      time: '2 min ago',
-    },
-    {
-      id: 2,
-      token: 'USDC/ETH',
-      type: 'sell',
-      amount: '6,125 USDC',
-      price: '$2,450.00',
-      profit: '+$89.50',
-      time: '5 min ago',
-    },
-    {
-      id: 3,
-      token: 'ETH/USDC',
-      type: 'buy',
-      amount: '1.8 ETH',
-      price: '$2,448.00',
-      profit: '+$67.20',
-      time: '12 min ago',
-    },
-  ]
+  const totalValue = isConnected && ethBalance && arbitrumBalance 
+    ? (Number(ethBalance.formatted || 0) + Number(arbitrumBalance.formatted || 0)) * 2000 // Approximate ETH price
+    : 0
 
   return (
     <div className="space-y-6">
@@ -91,82 +66,77 @@ export default function Dashboard() {
         </div>
         {isConnected && (
           <div className="text-right">
-            <p className="text-sm text-secondary-400">Wallet Balance</p>
+            <p className="text-sm text-secondary-400">Total Portfolio Value</p>
             <p className="text-xl font-bold text-white">
-              {balance?.formatted} {balance?.symbol}
+              ${totalValue.toFixed(2)}
             </p>
           </div>
         )}
       </div>
 
-      {/* Stats Grid */}
+      {/* Chain Balances */}
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
+        {chainBalances.map((chain) => (
           <div
-            key={stat.name}
+            key={chain.name}
             className="rounded-lg bg-secondary-800 p-6 border border-secondary-700"
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-secondary-400">{stat.name}</p>
-                <p className="text-2xl font-bold text-white">{stat.value}</p>
+                <p className="text-sm font-medium text-secondary-400">{chain.name}</p>
+                <p className="text-2xl font-bold text-white">{chain.balance}</p>
               </div>
-              <div className={`p-2 rounded-lg ${
-                stat.changeType === 'positive' ? 'bg-green-500/10' : 'bg-red-500/10'
-              }`}>
-                <stat.icon className={`h-6 w-6 ${
-                  stat.changeType === 'positive' ? 'text-green-500' : 'text-red-500'
-                }`} />
+              <div className="p-2 rounded-lg bg-primary-500/10">
+                <DollarSign className="h-6 w-6 text-primary-500" />
               </div>
-            </div>
-            <div className="mt-4 flex items-center">
-              {stat.changeType === 'positive' ? (
-                <ArrowUpRight className="h-4 w-4 text-green-500" />
-              ) : (
-                <ArrowDownRight className="h-4 w-4 text-red-500" />
-              )}
-              <span className={`ml-1 text-sm font-medium ${
-                stat.changeType === 'positive' ? 'text-green-500' : 'text-red-500'
-              }`}>
-                {stat.change}
-              </span>
-              <span className="ml-2 text-sm text-secondary-400">from last month</span>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Recent Trades */}
+      {/* Trading Status */}
       <div className="rounded-lg bg-secondary-800 border border-secondary-700">
         <div className="px-6 py-4 border-b border-secondary-700">
-          <h2 className="text-lg font-semibold text-white">Recent Trades</h2>
+          <h2 className="text-lg font-semibold text-white">Trading Status</h2>
         </div>
-        <div className="divide-y divide-secondary-700">
-          {recentTrades.map((trade) => (
-            <div key={trade.id} className="px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-4">
-                  <div className={`p-2 rounded-lg ${
-                    trade.type === 'buy' ? 'bg-green-500/10' : 'bg-red-500/10'
-                  }`}>
-                    {trade.type === 'buy' ? (
-                      <ArrowUpRight className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <ArrowDownRight className="h-4 w-4 text-red-500" />
-                    )}
-                  </div>
+        <div className="p-6">
+          {isConnected ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 rounded-lg bg-green-500/10 border border-green-500/20">
+                <div className="flex items-center space-x-3">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   <div>
-                    <p className="font-medium text-white">{trade.token}</p>
-                    <p className="text-sm text-secondary-400">{trade.amount} @ {trade.price}</p>
+                    <p className="font-medium text-white">Wallet Connected</p>
+                    <p className="text-sm text-secondary-400">Ready to execute arbitrage trades</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="font-medium text-green-500">{trade.profit}</p>
-                  <p className="text-sm text-secondary-400">{trade.time}</p>
+              </div>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="text-center p-4 rounded-lg bg-secondary-700">
+                  <p className="text-sm text-secondary-400">Active Opportunities</p>
+                  <p className="text-xl font-bold text-white">0</p>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-secondary-700">
+                  <p className="text-sm text-secondary-400">Total Trades</p>
+                  <p className="text-xl font-bold text-white">0</p>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-secondary-700">
+                  <p className="text-sm text-secondary-400">Success Rate</p>
+                  <p className="text-xl font-bold text-white">0%</p>
                 </div>
               </div>
             </div>
-          ))}
+          ) : (
+            <div className="text-center py-8">
+              <div className="w-16 h-16 bg-secondary-700 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Activity className="h-8 w-8 text-secondary-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-white mb-2">No Trading Activity</h3>
+              <p className="text-secondary-400">
+                Connect your wallet to start monitoring arbitrage opportunities
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
