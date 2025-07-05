@@ -1,0 +1,52 @@
+{
+  "name": "cross-chain-arbitrage-frontend",
+  "version": "1.0.0",
+  "description": "Cross-chain arbitrage trading interface with wallet connectivity",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext js,jsx,ts,tsx",
+    "lint:fix": "eslint . --ext js,jsx,ts,tsx --fix"
+  },
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-router-dom": "^6.8.1",
+    "wagmi": "^1.4.7",
+    "viem": "^1.19.9",
+    "@rainbow-me/rainbowkit": "^1.2.3",
+    "ethers": "^6.8.1",
+    "lucide-react": "^0.294.0",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.0.0",
+    "react-hot-toast": "^2.4.1",
+    "react-query": "^3.39.3",
+    "zustand": "^4.4.7"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@typescript-eslint/eslint-plugin": "^6.14.0",
+    "@typescript-eslint/parser": "^6.14.0",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.16",
+    "eslint": "^8.55.0",
+    "eslint-plugin-react-hooks": "^4.6.0",
+    "eslint-plugin-react-refresh": "^0.4.5",
+    "postcss": "^8.4.32",
+    "tailwindcss": "^3.3.6",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.8"
+  },
+  "keywords": [
+    "ethereum",
+    "arbitrage",
+    "defi",
+    "trading",
+    "wallet"
+  ],
+  "author": "Your Name",
+  "license": "MIT"
+} 
