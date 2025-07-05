@@ -1,24 +1,40 @@
-import React from 'react'
-import { useAccount, useBalance } from 'wagmi'
-import { 
-  DollarSign, 
-  Activity
-} from 'lucide-react'
+import { useAccount, useBalance } from 'wagmi';
+import { useEffect, useState } from 'react';
+import { DollarSign, Activity } from 'lucide-react';
 
+// Etherscan API Key should be stored in .env as VITE_ETHERSCAN_API_KEY
+const ETHERSCAN_API_KEY = (import.meta as any).env.VITE_ETHERSCAN_API_KEY;
+
+type Transaction = {
+  hash: string;
+  from: string;
+  to: string;
+  value: string;
+  timeStamp: string;
+  chain: 'Ethereum' | 'Sui' | 'Solana';
+  explorerUrl: string;
+};
+// ...existing code...
+// ...existing code...
 export default function Dashboard() {
-  const { address, isConnected } = useAccount()
+  const { address, isConnected } = useAccount();
+  const suiAddress = address;
+  const solanaAddress = address;
+  const [transactions, setTransactions] = useState<Transaction[] | null>(null);
+  const [txLoading, setTxLoading] = useState(false);
+  const [txError, setTxError] = useState<string | null>(null);
   const { data: ethBalance, isLoading: ethLoading } = useBalance({
     address: address,
     chainId: 1, // Ethereum mainnet
-  })
+  });
   const { data: arbitrumBalance, isLoading: arbLoading } = useBalance({
     address: address,
     chainId: 42161, // Arbitrum One
-  })
+  });
 
   // For Sui and Solana, we'll show placeholder since they need different SDKs
-  const suiBalance = isConnected ? "0.0 SUI" : "Connect wallet to display amount"
-  const solanaBalance = isConnected ? "0.0 SOL" : "Connect wallet to display amount"
+  const suiBalance = isConnected ? "0.0 SUI" : "Connect wallet to display amount";
+  const solanaBalance = isConnected ? "0.0 SOL" : "Connect wallet to display amount";
 
   const chainBalances = [
     {
@@ -53,11 +69,86 @@ export default function Dashboard() {
       balance: solanaBalance,
       chainId: 'solana',
     },
-  ]
+  ];
 
   const totalValue = isConnected && ethBalance && arbitrumBalance 
     ? (Number(ethBalance.formatted || 0) + Number(arbitrumBalance.formatted || 0)) * 2000 // Approximate ETH price
-    : 0
+    : 0;
+
+  useEffect(() => {
+    const fetchAllTxs = async () => {
+      if (!isConnected || !address) {
+        setTransactions(null);
+        return;
+      }
+      setTxLoading(true);
+      setTxError(null);
+      try {
+        // ETHERSCAN
+        const ethUrl = `https://api.etherscan.io/api?module=account&action=txlist&address=${address}&sort=desc&apikey=${ETHERSCAN_API_KEY}`;
+        const ethRes = await fetch(ethUrl);
+        const ethData = await ethRes.json();
+        let ethTxs: Transaction[] = [];
+        if (ethData.status === "1" && Array.isArray(ethData.result)) {
+          ethTxs = ethData.result.slice(0, 10).map((tx: any) => ({
+            hash: tx.hash,
+            from: tx.from,
+            to: tx.to,
+            value: tx.value,
+            timeStamp: tx.timeStamp,
+            chain: 'Ethereum',
+            explorerUrl: `https://etherscan.io/tx/${tx.hash}`,
+          }));
+        }
+
+        // SUISCAN
+        let suiTxs: Transaction[] = [];
+        try {
+          const suiUrl = `https://api.suiscan.xyz/mainnet/account/${suiAddress}/transactions?limit=10`;
+          const suiRes = await fetch(suiUrl);
+          const suiData = await suiRes.json();
+          if (Array.isArray(suiData)) {
+            suiTxs = suiData.map((tx: any) => ({
+              hash: tx.digest,
+              from: tx.sender || '-',
+              to: tx.recipient || '-',
+              value: tx.amount || '0',
+              timeStamp: tx.timestampMs ? String(Math.floor(Number(tx.timestampMs) / 1000)) : '',
+              chain: 'Sui',
+              explorerUrl: `https://suiscan.xyz/mainnet/tx/${tx.digest}`,
+            }));
+          }
+        } catch (e) { /* ignore Sui errors */ }
+
+        // SOLSCAN
+        let solTxs: Transaction[] = [];
+        try {
+          const solUrl = `https://public-api.solscan.io/account/transactions?address=${solanaAddress}&limit=10`;
+          const solRes = await fetch(solUrl);
+          const solData = await solRes.json();
+          if (Array.isArray(solData)) {
+            solTxs = solData.map((tx: any) => ({
+              hash: tx.txHash,
+              from: tx.src || '-',
+              to: tx.dst || '-',
+              value: tx.lamport ? String(tx.lamport) : '0',
+              timeStamp: tx.blockTime ? String(tx.blockTime) : '',
+              chain: 'Solana',
+              explorerUrl: `https://solscan.io/tx/${tx.txHash}`,
+            }));
+          }
+        } catch (e) { /* ignore Solana errors */ }
+
+        // Merge and sort all txs by timeStamp desc
+        const allTxs = [...ethTxs, ...suiTxs, ...solTxs].sort((a, b) => Number(b.timeStamp) - Number(a.timeStamp));
+        setTransactions(allTxs);
+      } catch (e) {
+        setTxError("Error fetching transactions");
+      }
+      setTxLoading(false);
+    };
+    fetchAllTxs();
+  }, [isConnected, address, suiAddress, solanaAddress]);
 
   return (
     <div className="space-y-6">
@@ -147,6 +238,63 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Transactions List */}
+      <div className="rounded-lg bg-secondary-800 border border-secondary-700 mt-6">
+        <div className="px-6 py-4 border-b border-secondary-700">
+          <h2 className="text-lg font-semibold text-white">Transactions</h2>
+          <p className="text-secondary-400 text-sm">Live feed from Etherscan, Suiscan, Solscan</p>
+        </div>
+        <div className="overflow-x-auto p-6">
+          {txLoading ? (
+            <div className="text-secondary-400">Loading transactions...</div>
+          ) : txError ? (
+            <div className="text-red-500">{txError}</div>
+          ) : !isConnected ? (
+            <div className="text-secondary-400">Connect your wallet to see your transactions.</div>
+          ) : transactions && transactions.length === 0 ? (
+            <div className="text-secondary-400">No transactions found for this wallet.</div>
+          ) : transactions && transactions.length > 0 ? (
+            <table className="min-w-full divide-y divide-secondary-700">
+              <thead>
+                <tr>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-secondary-400 uppercase tracking-wider">Hash</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-secondary-400 uppercase tracking-wider">Chain</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-secondary-400 uppercase tracking-wider">From</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-secondary-400 uppercase tracking-wider">To</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-secondary-400 uppercase tracking-wider">Amount</th>
+                  <th className="px-4 py-2 text-left text-xs font-medium text-secondary-400 uppercase tracking-wider">Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-secondary-700">
+                {transactions.map((tx) => (
+                  <tr key={tx.hash + tx.chain}>
+                    <td className="px-4 py-2 text-white">
+                      <a
+                        href={tx.explorerUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-primary-400 hover:underline"
+                      >
+                        {tx.hash.slice(0, 8)}...{tx.hash.slice(-6)}
+                      </a>
+                    </td>
+                    <td className="px-4 py-2 text-white">{tx.chain}</td>
+                    <td className="px-4 py-2 text-white">{tx.from && tx.from.length > 10 ? tx.from.slice(0, 6) + '...' + tx.from.slice(-4) : tx.from}</td>
+                    <td className="px-4 py-2 text-white">{tx.to && tx.to.length > 10 ? tx.to.slice(0, 6) + '...' + tx.to.slice(-4) : tx.to}</td>
+                    <td className="px-4 py-2 text-white">
+                      {tx.chain === 'Ethereum' ? `${(Number(tx.value) / 1e18).toFixed(4)} ETH` :
+                       tx.chain === 'Solana' ? `${(Number(tx.value) / 1e9).toFixed(4)} SOL` :
+                       tx.chain === 'Sui' ? `${(Number(tx.value) / 1e9).toFixed(4)} SUI` : tx.value}
+                    </td>
+                    <td className="px-4 py-2 text-white">{tx.timeStamp ? new Date(Number(tx.timeStamp) * 1000).toLocaleString() : '-'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : null}
+        </div>
+      </div>
     </div>
-  )
-} 
+  );
+}
