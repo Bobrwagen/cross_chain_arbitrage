@@ -11,18 +11,19 @@
     "lint:fix": "eslint . --ext js,jsx,ts,tsx --fix"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.8.1",
-    "wagmi": "^1.4.7",
-    "viem": "^1.19.9",
     "@rainbow-me/rainbowkit": "^1.2.3",
+    "@tanstack/react-query": "^5.81.5",
+    "clsx": "^2.0.0",
     "ethers": "^6.8.1",
     "lucide-react": "^0.294.0",
-    "clsx": "^2.0.0",
-    "tailwind-merge": "^2.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
     "react-hot-toast": "^2.4.1",
     "react-query": "^3.39.3",
+    "react-router-dom": "^6.8.1",
+    "tailwind-merge": "^2.0.0",
+    "viem": "^1.19.9",
+    "wagmi": "^1.4.7",
     "zustand": "^4.4.7"
   },
   "devDependencies": {
@@ -49,4 +50,4 @@
   ],
   "author": "Your Name",
   "license": "MIT"
-} 
+}
