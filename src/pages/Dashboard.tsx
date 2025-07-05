@@ -1,6 +1,6 @@
 import { useAccount, useBalance } from 'wagmi';
 import { useEffect, useState } from 'react';
-import { DollarSign, Activity, TrendingUp, TrendingDown } from 'lucide-react';
+import { Activity, TrendingUp, TrendingDown } from 'lucide-react';
 
 // Etherscan API Key should be stored in .env as VITE_ETHERSCAN_API_KEY
 const ETHERSCAN_API_KEY = (import.meta as any).env.VITE_ETHERSCAN_API_KEY;
@@ -162,7 +162,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* Header */}
       <div className="mb-2 flex flex-col lg:flex-row lg:items-end lg:justify-between">
-        <h1 className="text-4xl font-extrabold text-white drop-shadow-lg tracking-tight">Dashboard</h1>
+        <h1 className="text-5xl md:text-6xl font-extrabold text-white drop-shadow-lg tracking-tight">Dashboard</h1>
         {isConnected && (
           <div className="mt-2 lg:mt-0 lg:text-right">
             <p className="text-lg font-semibold text-white drop-shadow-lg">Total Balance</p>
@@ -174,25 +174,25 @@ export default function Dashboard() {
       {/* Performance & Chain Balances (side by side, straight) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Performance Block (left) */}
-        <div className="bg-secondary-800 rounded-lg p-8 border border-secondary-700 flex flex-col justify-between shadow-2xl h-full min-h-[340px]">
+        <div className="bg-secondary-800 rounded-lg p-6 border border-secondary-700 flex flex-col justify-between shadow-2xl h-full min-h-[240px] max-h-[320px]">
           <div className="flex flex-col items-center justify-center mb-6 w-full h-full">
             {isPositive ? (
-              <TrendingUp className="w-2/3 h-48 md:h-64 text-green-500 drop-shadow-[0_2px_16px_rgba(34,197,94,0.7)] mx-auto" style={{maxWidth:'320px', minWidth:'120px'}} />
+              <TrendingUp className="w-2/3 h-40 md:h-56 text-green-500 drop-shadow-[0_2px_16px_rgba(34,197,94,0.7)] mx-auto" style={{maxWidth:'240px', minWidth:'100px'}} />
             ) : (
-              <TrendingDown className="w-2/3 h-48 md:h-64 text-red-500 drop-shadow-[0_2px_16px_rgba(239,68,68,0.7)] mx-auto" style={{maxWidth:'320px', minWidth:'120px'}} />
+              <TrendingDown className="w-2/3 h-40 md:h-56 text-red-500 drop-shadow-[0_2px_16px_rgba(239,68,68,0.7)] mx-auto" style={{maxWidth:'240px', minWidth:'100px'}} />
             )}
-            <h2 className="text-4xl md:text-5xl font-extrabold text-white drop-shadow-lg mt-4 text-center">Performance</h2>
+            <h2 className="text-3xl md:text-4xl font-extrabold text-white drop-shadow-lg mt-3 text-center">Performance</h2>
             <div className="flex flex-col items-center gap-2 mt-2">
-              <span className={`text-6xl md:text-7xl font-extrabold drop-shadow-lg ${isPositive ? 'text-green-400' : 'text-red-400'}`}>{performance.toFixed(2)}%</span>
-              <span className="text-secondary-400 text-2xl font-semibold">{isPositive ? 'Profit' : 'Loss'}</span>
+              <span className={`text-5xl md:text-6xl font-extrabold drop-shadow-lg ${isPositive ? 'text-green-400' : 'text-red-400'}`}>{performance.toFixed(2)}%</span>
+              <span className="text-secondary-400 text-xl font-semibold">{isPositive ? 'Profit' : 'Loss'}</span>
             </div>
-            <p className="text-secondary-400 text-lg mt-2 text-center">since initial investment (${investedUSD.toFixed(2)})</p>
+            <p className="text-secondary-400 text-base mt-2 text-center">since initial investment (${investedUSD.toFixed(2)})</p>
           </div>
-          <div className="flex gap-2 mb-6 justify-center">
+          <div className="flex gap-1 mb-2 justify-center">
             {['1D', '1W', '1M', '1Y'].map((label) => (
               <button
                 key={label}
-                className="px-4 py-1 rounded-full border border-primary-400 text-primary-400 font-semibold bg-secondary-900 hover:bg-primary-400 hover:text-white transition drop-shadow"
+                className="px-4 py-1 rounded-full border border-primary-400 text-primary-400 text-sm font-semibold bg-secondary-900 hover:bg-primary-400 hover:text-white transition drop-shadow"
                 // TODO: Add onClick logic to update performance range
               >
                 {label}
@@ -201,24 +201,31 @@ export default function Dashboard() {
           </div>
         </div>
         {/* Chain Balances (right) */}
-        <div className="flex flex-col justify-between h-full min-h-[340px]">
-          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-1 h-full">
-            {chainBalances.map((chain) => (
-              <div
-                key={chain.name}
-                className="rounded-lg bg-secondary-700 p-6 border border-secondary-600 flex flex-col items-start shadow-lg h-full"
-              >
-                <div className="flex items-center justify-between w-full">
-                  <div>
-                    <p className="text-base font-medium text-secondary-300 drop-shadow-lg">{chain.name}</p>
-                    <p className="text-2xl font-bold text-white drop-shadow-lg">{chain.balance}</p>
+        <div className="flex flex-col justify-between h-full min-h-[240px] max-h-[320px]">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 h-full">
+            {chainBalances.map((chain, idx) => {
+              // Dummy growth/loss for demo: alternate + and -
+              const growth = idx % 2 === 0 ? 2.5 : -1.3;
+              const isGrowth = growth >= 0;
+              return (
+                <div
+                  key={chain.name}
+                  className="rounded-lg bg-secondary-800 p-4 border border-secondary-700 flex flex-row items-center justify-between shadow-lg h-full min-h-[60px] max-h-[80px]"
+                >
+                  {/* Left: Chain name */}
+                  <div className="flex flex-col items-start min-w-[90px]">
+                    <span className="text-base font-medium text-secondary-300 drop-shadow-lg">{chain.name}</span>
                   </div>
-                  <div className="p-2 rounded-lg bg-primary-500/10">
-                    <DollarSign className="h-7 w-7 text-primary-500 drop-shadow-lg" />
-                  </div>
+                  {/* Center: Value (vertically centered) */}
+                  <span className="text-lg font-bold text-white drop-shadow-lg text-center flex-1">{chain.balance}</span>
+                  {/* Right: Growth/Loss */}
+                  <span className={`flex items-center gap-1 font-semibold ${isGrowth ? 'text-green-400' : 'text-red-400'}`}>
+                    {isGrowth ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
+                    {isGrowth ? '+' : ''}{growth}%
+                  </span>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>
