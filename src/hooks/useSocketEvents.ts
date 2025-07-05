@@ -10,7 +10,7 @@ export type Opportunity = {
 
 export function useSocketEvents(onOpportunity: (data: Opportunity[] | Opportunity) => void, onLog: (msg: string) => void) {
   useEffect(() => {
-    const socket: Socket = io('http://localhost:3000');
+    const socket: Socket = io('http://localhost:5000');
     socket.on('arb-opportunity', (data: Opportunity[] | Opportunity) => {
       onLog(`[${new Date().toLocaleTimeString()}] Received opportunity`);
       onOpportunity(data);

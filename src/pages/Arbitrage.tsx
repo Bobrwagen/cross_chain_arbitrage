@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { useSocketEvents } from '../hooks/useSocketEvents';
 import { useTradesStore } from '../hooks/useTradesStore';
 import { BalancesGrid } from '../components/BalancesGrid';
 
@@ -123,6 +124,47 @@ const ExecutionModal = ({
       expectedProfitUsd: 42,
     },
   ]);
+
+  // Socket.IO: Merge live opportunities
+  const handleSocketOpportunity = useCallback((data: any) => {
+    // Accept both array and single object
+    const newOpps = Array.isArray(data) ? data : [data];
+    setOpportunities(prev => {
+      // Only add if not already present (by id or optionSymbol)
+      const existingIds = new Set(prev.map(o => o.id || o.optionSymbol));
+      const merged = [...prev];
+      newOpps.forEach(opp => {
+        // Robust mapping for backend events
+        const mapped = {
+          id: opp.id || opp.optionSymbol || Math.random().toString(36).slice(2),
+          optionSymbol: opp.optionSymbol || opp.buyOn + '-' + (opp.strike || '') + '-' + (opp.expiry || ''),
+          strike: opp.strike ?? 2000,
+          expiry: opp.expiry ?? '2025-07-25',
+          iv: opp.iv ?? 0.4,
+          delta: opp.delta ?? 0.5,
+          gamma: opp.gamma ?? 0.02,
+          buyOn: opp.buyOn || 'Lyra',
+          buyChain: opp.buyChain || 'Sepolia',
+          hedgeOn: opp.hedgeOn || opp.sellOn || 'Uniswap',
+          hedgeChain: opp.hedgeChain || 'Arbitrum',
+          bridgeNeeded: opp.bridgeNeeded ?? false,
+          bridgeTo: opp.bridgeTo || '',
+          bridgeToChain: opp.bridgeToChain || '',
+          expectedProfitUsd: opp.expectedProfitUsd ?? 42,
+        };
+        if (!existingIds.has(mapped.id)) {
+          merged.unshift(mapped);
+        }
+      });
+      return merged;
+    });
+  }, []);
+
+  const handleSocketLog = useCallback((msg: string) => {
+    setLogs(prev => [...prev, msg]);
+  }, []);
+
+  useSocketEvents(handleSocketOpportunity, handleSocketLog);
 
   // State for new custom opportunity form
   const [showCreate, setShowCreate] = useState(false);
