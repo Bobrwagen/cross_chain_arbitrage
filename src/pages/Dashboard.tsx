@@ -1,5 +1,7 @@
 import { useAccount, useBalance } from 'wagmi';
 import { useEffect, useState } from 'react';
+// import { SuiClient, getFullnodeUrl } from '@mysten/sui';
+import { Connection, PublicKey } from '@solana/web3.js';
 import { Activity, TrendingUp, TrendingDown } from 'lucide-react';
 
 // Etherscan API Key should be stored in .env as VITE_ETHERSCAN_API_KEY
@@ -14,7 +16,7 @@ type Transaction = {
   chain: 'Ethereum' | 'Sui' | 'Solana';
   explorerUrl: string;
 };
-// ...existing code...
+
 // ...existing code...
 export default function Dashboard() {
 
@@ -33,9 +35,48 @@ export default function Dashboard() {
     chainId: 42161, // Arbitrum One
   });
 
-  // For Sui and Solana, we'll show placeholder since they need different SDKs
-  const suiBalance = isConnected ? "0.0 SUI" : "Connect wallet to display amount";
-  const solanaBalance = isConnected ? "0.0 SOL" : "Connect wallet to display amount";
+  // Sui balance
+  const [suiBalance, setSuiBalance] = useState<string>(isConnected ? 'Loading...' : 'Connect wallet to display amount');
+  // Solana balance
+  const [solanaBalance, setSolanaBalance] = useState<string>(isConnected ? 'Loading...' : 'Connect wallet to display amount');
+
+  // Sui balance fetching is disabled due to package issues.
+  // useEffect(() => {
+  //   const fetchSuiBalance = async () => {
+  //     if (!isConnected || !suiAddress) {
+  //       setSuiBalance('Connect wallet to display amount');
+  //       return;
+  //     }
+  //     try {
+  //       const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
+  //       const coins = await suiClient.getAllBalances({ owner: suiAddress });
+  //       const suiCoin = coins.find((c: any) => c.coinType.includes('sui'));
+  //       const suiAmount = suiCoin ? Number(suiCoin.totalBalance) / 1e9 : 0;
+  //       setSuiBalance(`${suiAmount.toFixed(4)} SUI`);
+  //     } catch (e) {
+  //       setSuiBalance('0.0 SUI');
+  //     }
+  //   };
+  //   fetchSuiBalance();
+  // }, [isConnected, suiAddress]);
+
+  useEffect(() => {
+    const fetchSolanaBalance = async () => {
+      if (!isConnected || !solanaAddress) {
+        setSolanaBalance('Connect wallet to display amount');
+        return;
+      }
+      try {
+        const connection = new Connection('https://api.mainnet-beta.solana.com');
+        const pubkey = new PublicKey(solanaAddress);
+        const lamports = await connection.getBalance(pubkey);
+        setSolanaBalance(`${(lamports / 1e9).toFixed(4)} SOL`);
+      } catch (e) {
+        setSolanaBalance('0.0 SOL');
+      }
+    };
+    fetchSolanaBalance();
+  }, [isConnected, solanaAddress]);
 
   const chainBalances = [
     {
@@ -72,15 +113,39 @@ export default function Dashboard() {
     },
   ];
 
-  const totalValue = isConnected && ethBalance && arbitrumBalance 
-    ? (Number(ethBalance.formatted || 0) + Number(arbitrumBalance.formatted || 0)) * 2000 // Approximate ETH price
+  // Calculate total value using live prices (ETH, SUI, SOL)
+  const [prices, setPrices] = useState<{ eth: number; sui: number; sol: number }>({ eth: 0, sui: 0, sol: 0 });
+  useEffect(() => {
+    const fetchPrices = async () => {
+      try {
+        // 1inch for ETH, CoinGecko for SUI/SOL
+        const ethRes = await fetch('https://api.1inch.dev/price/v1.1/1/ETH');
+        const ethData = await ethRes.json();
+        const cgRes = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=sui,solana&vs_currencies=usd');
+        const cgData = await cgRes.json();
+        setPrices({
+          eth: ethData.price || 0,
+          sui: cgData.sui?.usd || 0,
+          sol: cgData.solana?.usd || 0,
+        });
+      } catch (e) {
+        setPrices({ eth: 0, sui: 0, sol: 0 });
+      }
+    };
+    fetchPrices();
+  }, []);
+
+  const totalValue = isConnected && ethBalance && arbitrumBalance && suiBalance && solanaBalance
+    ? (Number(ethBalance.formatted || 0) * prices.eth
+      + Number(arbitrumBalance.formatted || 0) * prices.eth
+      + (parseFloat(suiBalance) || 0) * prices.sui
+      + (parseFloat(solanaBalance) || 0) * prices.sol)
     : 0;
 
-  // Dummy: Replace with real invested value
-  const investedUSD = 1000; // TODO: Replace with real invested value
-  // Performance calculation (dummy, replace with real logic)
-  const performance = investedUSD ? ((totalValue - investedUSD) / investedUSD) * 100 : 0;
-  const isPositive = performance >= 0;
+  // TODO: Replace with real invested value from backend or user input
+  const investedUSD = undefined; // No dummy value
+  const performance = investedUSD ? ((totalValue - investedUSD) / investedUSD) * 100 : undefined;
+  const isPositive = performance !== undefined ? performance >= 0 : true;
 
   useEffect(() => {
     const fetchAllTxs = async () => {
@@ -174,58 +239,50 @@ export default function Dashboard() {
       {/* Performance & Chain Balances (side by side, straight) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Performance Block (left) */}
-        <div className="bg-secondary-800 rounded-lg p-6 border border-secondary-700 flex flex-col justify-between shadow-2xl h-full min-h-[240px] max-h-[320px]">
-          <div className="flex flex-col items-center justify-center mb-6 w-full h-full">
-            {isPositive ? (
-              <TrendingUp className="w-2/3 h-40 md:h-56 text-green-500 drop-shadow-[0_2px_16px_rgba(34,197,94,0.7)] mx-auto" style={{maxWidth:'240px', minWidth:'100px'}} />
-            ) : (
-              <TrendingDown className="w-2/3 h-40 md:h-56 text-red-500 drop-shadow-[0_2px_16px_rgba(239,68,68,0.7)] mx-auto" style={{maxWidth:'240px', minWidth:'100px'}} />
-            )}
-            <h2 className="text-3xl md:text-4xl font-extrabold text-white drop-shadow-lg mt-3 text-center">Performance</h2>
-            <div className="flex flex-col items-center gap-2 mt-2">
-              <span className={`text-5xl md:text-6xl font-extrabold drop-shadow-lg ${isPositive ? 'text-green-400' : 'text-red-400'}`}>{performance.toFixed(2)}%</span>
-              <span className="text-secondary-400 text-xl font-semibold">{isPositive ? 'Profit' : 'Loss'}</span>
+        {investedUSD !== undefined && (
+          <div className="bg-secondary-800 rounded-lg p-6 border border-secondary-700 flex flex-col justify-between shadow-2xl h-full min-h-[240px] max-h-[320px]">
+            <div className="flex flex-col items-center justify-center mb-6 w-full h-full">
+              {isPositive ? (
+                <TrendingUp className="w-2/3 h-40 md:h-56 text-green-500 drop-shadow-[0_2px_16px_rgba(34,197,94,0.7)] mx-auto" style={{maxWidth:'240px', minWidth:'100px'}} />
+              ) : (
+                <TrendingDown className="w-2/3 h-40 md:h-56 text-red-500 drop-shadow-[0_2px_16px_rgba(239,68,68,0.7)] mx-auto" style={{maxWidth:'240px', minWidth:'100px'}} />
+              )}
+              <h2 className="text-3xl md:text-4xl font-extrabold text-white drop-shadow-lg mt-3 text-center">Performance</h2>
+              <div className="flex flex-col items-center gap-2 mt-2">
+                <span className={`text-5xl md:text-6xl font-extrabold drop-shadow-lg ${isPositive ? 'text-green-400' : 'text-red-400'}`}>{performance?.toFixed(2)}%</span>
+                <span className="text-secondary-400 text-xl font-semibold">{isPositive ? 'Profit' : 'Loss'}</span>
+              </div>
+              <p className="text-secondary-400 text-base mt-2 text-center">since initial investment ({investedUSD !== undefined ? `$${Number(investedUSD).toFixed(2)}` : '-'})</p>
             </div>
-            <p className="text-secondary-400 text-base mt-2 text-center">since initial investment (${investedUSD.toFixed(2)})</p>
+            <div className="flex gap-1 mb-2 justify-center">
+              {['1D', '1W', '1M', '1Y'].map((label) => (
+                <button
+                  key={label}
+                  className="px-4 py-1 rounded-full border border-primary-400 text-primary-400 text-sm font-semibold bg-secondary-900 hover:bg-primary-400 hover:text-white transition drop-shadow"
+                  // TODO: Add onClick logic to update performance range
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
-          <div className="flex gap-1 mb-2 justify-center">
-            {['1D', '1W', '1M', '1Y'].map((label) => (
-              <button
-                key={label}
-                className="px-4 py-1 rounded-full border border-primary-400 text-primary-400 text-sm font-semibold bg-secondary-900 hover:bg-primary-400 hover:text-white transition drop-shadow"
-                // TODO: Add onClick logic to update performance range
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
+        )}
         {/* Chain Balances (right) */}
         <div className="flex flex-col justify-between h-full min-h-[240px] max-h-[320px]">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-1 h-full">
-            {chainBalances.map((chain, idx) => {
-              // Dummy growth/loss for demo: alternate + and -
-              const growth = idx % 2 === 0 ? 2.5 : -1.3;
-              const isGrowth = growth >= 0;
-              return (
-                <div
-                  key={chain.name}
-                  className="rounded-lg bg-secondary-800 p-4 border border-secondary-700 flex flex-row items-center justify-between shadow-lg h-full min-h-[60px] max-h-[80px]"
-                >
-                  {/* Left: Chain name */}
-                  <div className="flex flex-col items-start min-w-[90px]">
-                    <span className="text-base font-medium text-secondary-300 drop-shadow-lg">{chain.name}</span>
-                  </div>
-                  {/* Center: Value (vertically centered) */}
-                  <span className="text-lg font-bold text-white drop-shadow-lg text-center flex-1">{chain.balance}</span>
-                  {/* Right: Growth/Loss */}
-                  <span className={`flex items-center gap-1 font-semibold ${isGrowth ? 'text-green-400' : 'text-red-400'}`}>
-                    {isGrowth ? <TrendingUp className="h-4 w-4" /> : <TrendingDown className="h-4 w-4" />}
-                    {isGrowth ? '+' : ''}{growth}%
-                  </span>
+            {chainBalances.map((chain) => (
+              <div
+                key={chain.name}
+                className="rounded-lg bg-secondary-800 p-4 border border-secondary-700 flex flex-row items-center justify-between shadow-lg h-full min-h-[60px] max-h-[80px]"
+              >
+                {/* Left: Chain name */}
+                <div className="flex flex-col items-start min-w-[90px]">
+                  <span className="text-base font-medium text-secondary-300 drop-shadow-lg">{chain.name}</span>
                 </div>
-              );
-            })}
+                {/* Center: Value (vertically centered) */}
+                <span className="text-lg font-bold text-white drop-shadow-lg text-center flex-1">{chain.balance}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
