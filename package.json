@@ -10,6 +10,7 @@
     "lint": "eslint . --ext js,jsx,ts,tsx",
     "lint:fix": "eslint . --ext js,jsx,ts,tsx --fix"
   },
+
   "dependencies": {
     "@mysten/sui": "^1.35.0",
     "@rainbow-me/rainbowkit": "^1.2.3",
@@ -64,5 +65,5 @@
   "bugs": {
     "url": "https://github.com/Bobrwagen/cross_chain_arbitrage/issues"
   },
-  "homepage": "https://github.com/Bobrwagen/cross_chain_arbitrage#readme",
+  "homepage": "https://github.com/Bobrwagen/cross_chain_arbitrage#readme"
 }

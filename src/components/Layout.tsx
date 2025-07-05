@@ -7,6 +7,7 @@ import {
   Settings as SettingsIcon,
   Menu,
   X
+  //hallöle
 } from 'lucide-react'
 import { useState } from 'react'
 import { ConnectButton } from '@rainbow-me/rainbowkit'

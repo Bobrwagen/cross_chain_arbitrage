@@ -7,6 +7,8 @@ import {
   ArrowRight,
   AlertCircle,
   CheckCircle
+  //hallöle
+  //mau mau
 } from 'lucide-react'
 
 export default function Arbitrage() {
