@@ -1,6 +1,6 @@
 import { useAccount, useBalance } from 'wagmi';
 import { useEffect, useState } from 'react';
-import { SuiClient, getFullnodeUrl } from '@mysten/sui';
+// import { SuiClient, getFullnodeUrl } from '@mysten/sui';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Activity, TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -40,24 +40,25 @@ export default function Dashboard() {
   // Solana balance
   const [solanaBalance, setSolanaBalance] = useState<string>(isConnected ? 'Loading...' : 'Connect wallet to display amount');
 
-  useEffect(() => {
-    const fetchSuiBalance = async () => {
-      if (!isConnected || !suiAddress) {
-        setSuiBalance('Connect wallet to display amount');
-        return;
-      }
-      try {
-        const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
-        const coins = await suiClient.getAllBalances({ owner: suiAddress });
-        const suiCoin = coins.find((c: any) => c.coinType.includes('sui')); // SUI coin type
-        const suiAmount = suiCoin ? Number(suiCoin.totalBalance) / 1e9 : 0;
-        setSuiBalance(`${suiAmount.toFixed(4)} SUI`);
-      } catch (e) {
-        setSuiBalance('0.0 SUI');
-      }
-    };
-    fetchSuiBalance();
-  }, [isConnected, suiAddress]);
+  // Sui balance fetching is disabled due to package issues.
+  // useEffect(() => {
+  //   const fetchSuiBalance = async () => {
+  //     if (!isConnected || !suiAddress) {
+  //       setSuiBalance('Connect wallet to display amount');
+  //       return;
+  //     }
+  //     try {
+  //       const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
+  //       const coins = await suiClient.getAllBalances({ owner: suiAddress });
+  //       const suiCoin = coins.find((c: any) => c.coinType.includes('sui'));
+  //       const suiAmount = suiCoin ? Number(suiCoin.totalBalance) / 1e9 : 0;
+  //       setSuiBalance(`${suiAmount.toFixed(4)} SUI`);
+  //     } catch (e) {
+  //       setSuiBalance('0.0 SUI');
+  //     }
+  //   };
+  //   fetchSuiBalance();
+  // }, [isConnected, suiAddress]);
 
   useEffect(() => {
     const fetchSolanaBalance = async () => {
