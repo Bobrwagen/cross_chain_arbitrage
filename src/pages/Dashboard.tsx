@@ -1,21 +1,17 @@
 import React from 'react'
 import { useAccount, useBalance } from 'wagmi'
 import { 
-  TrendingUp, 
-  TrendingDown, 
   DollarSign, 
-  Activity,
-  ArrowUpRight,
-  ArrowDownRight
+  Activity
 } from 'lucide-react'
 
 export default function Dashboard() {
   const { address, isConnected } = useAccount()
-  const { data: ethBalance } = useBalance({
+  const { data: ethBalance, isLoading: ethLoading } = useBalance({
     address: address,
     chainId: 1, // Ethereum mainnet
   })
-  const { data: arbitrumBalance } = useBalance({
+  const { data: arbitrumBalance, isLoading: arbLoading } = useBalance({
     address: address,
     chainId: 42161, // Arbitrum One
   })
@@ -27,12 +23,24 @@ export default function Dashboard() {
   const chainBalances = [
     {
       name: 'Ethereum',
-      balance: isConnected ? `${ethBalance?.formatted || '0.0'} ${ethBalance?.symbol || 'ETH'}` : 'Connect wallet to display amount',
+      balance: !isConnected
+        ? 'Connect wallet to display amount'
+        : ethLoading
+          ? 'Loading...'
+          : ethBalance
+            ? `${ethBalance.formatted} ${ethBalance.symbol}`
+            : '0.0 ETH',
       chainId: 1,
     },
     {
       name: 'Arbitrum',
-      balance: isConnected ? `${arbitrumBalance?.formatted || '0.0'} ${arbitrumBalance?.symbol || 'ETH'}` : 'Connect wallet to display amount',
+      balance: !isConnected
+        ? 'Connect wallet to display amount'
+        : arbLoading
+          ? 'Loading...'
+          : arbitrumBalance
+            ? `${arbitrumBalance.formatted} ${arbitrumBalance.symbol}`
+            : '0.0 ETH',
       chainId: 42161,
     },
     {
