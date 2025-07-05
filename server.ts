@@ -28,10 +28,21 @@ const CHAINS = [
 ];
 
 // ---------- 2.  State ----------
-const state = {
-  lastPricesUSD: {}, // { chainId: Number }
+const state: {
+  lastPricesUSD: Record<number, any>;
+  lastUpdated: number;
+  opportunities: {
+    ts: number;
+    buyOn: string;
+    sellOn: string;
+    risky: boolean;
+    expectedProfit: bigint;
+    latencyDeltaSec: string;
+  }[];
+} = {
+  lastPricesUSD: {},
   lastUpdated: 0,
-  opportunities: [], // [{ ts, buyChain, sellChain, spreadPct }]
+  opportunities: [],
 };
 
 // ---------- 3.  Helpers ----------
@@ -219,6 +230,34 @@ function determineArbitrage(quotes: any[]) {
   return opportunities;
 }
 
+async function runDetection() {
+ while (true) {
+    try {
+      const quotes = await runExchanges();
+      const found  : Array<any> = determineArbitrage(quotes);
+
+      if (found.length > 0) {
+        console.log(`🚨 Found ${found.length} arbitrage opportunity(ies):`);
+        found.forEach((opp) => {
+          console.log(`🔁 Buy on ${opp.buyOn}, Sell on ${opp.sellOn} → Profit: ${Number(opp.expectedProfit) / 1e18} ETH`);
+        });
+
+        // Prepend to state
+        state.opportunities.unshift(...found);
+        state.opportunities = state.opportunities.slice(0, 100); // cap history
+      } else {
+        console.log("⏳ No arbitrage found this round.");
+      }
+
+      state.lastUpdated = Date.now();
+    } catch (err) {
+      console.error("❌ Error in runDetection:", err.message || err);
+    }
+
+    await new Promise((r) => setTimeout(r, 15000)); // wait 15 sec
+  }
+}
+
 // ---------- 4.  Express routes ----------
 app.get("/prices", (_req, res) => {
   res.json({ updated: state.lastUpdated, prices: state.lastPricesUSD });
@@ -234,7 +273,7 @@ app.get("/", (_req, res) => res.send("Cross‑chain arb bot online"));
 // ---------- 5.  Start ----------
 app.listen(PORT, () => {
   console.log(`✔️  Express listening on :${PORT}`);
-  scanLoop();
+  runDetection();
 });
 
 // ------------------------------------------------------------
