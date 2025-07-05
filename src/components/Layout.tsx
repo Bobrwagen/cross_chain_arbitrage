@@ -9,6 +9,7 @@ import {
   X
 } from 'lucide-react'
 import { useState } from 'react'
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 
 interface LayoutProps {
   children: ReactNode
@@ -112,6 +113,9 @@ export default function Layout({ children }: LayoutProps) {
 
           <div className="flex flex-1 gap-x-4 self-stretch lg:gap-x-6">
             <div className="flex flex-1" />
+            <div className="flex items-center gap-x-4 lg:gap-x-6">
+              <ConnectButton />
+            </div>
           </div>
         </div>
 

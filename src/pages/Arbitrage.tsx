@@ -1,11 +1,14 @@
-import { useState } from 'react'
+import React, { useState } from 'react'
+import { useAccount, useBalance } from 'wagmi'
 import { 
   ArrowRight, 
   TrendingUp, 
   AlertTriangle,
   CheckCircle,
   RefreshCw,
-  Settings
+  Settings,
+  Search,
+  AlertCircle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -24,6 +27,10 @@ const COMMON_TOKENS = [
 ]
 
 export default function Arbitrage() {
+  const { address, isConnected } = useAccount()
+  const { data: balance } = useBalance({
+    address: address,
+  })
   const [fromToken, setFromToken] = useState('USDC')
   const [toToken, setToToken] = useState('WETH')
   const [amount, setAmount] = useState('')
@@ -32,34 +39,42 @@ export default function Arbitrage() {
   const [isLoading, setIsLoading] = useState(false)
   const [quote, setQuote] = useState<any>(null)
   const [selectedChain, setSelectedChain] = useState(1)
+  const [selectedOpportunity, setSelectedOpportunity] = useState<number | null>(null)
+  const [isExecuting, setIsExecuting] = useState(false)
 
-  const arbitrageOpportunities = [
+  const opportunities = [
     {
       id: 1,
+      token: 'ETH/USDC',
       fromChain: 'Ethereum',
       toChain: 'Polygon',
-      token: 'USDC/WETH',
-      profit: '+2.3%',
+      profit: '+2.8%',
       amount: '$1,000',
-      gasEstimate: '$15',
+      gasEstimate: '$12.50',
+      netProfit: '+$15.50',
+      risk: 'Low',
     },
     {
       id: 2,
-      fromChain: 'Arbitrum',
-      toChain: 'Optimism',
-      token: 'USDT/DAI',
-      profit: '+1.8%',
+      token: 'USDC/ETH',
+      fromChain: 'Polygon',
+      toChain: 'Arbitrum',
+      profit: '+1.9%',
       amount: '$500',
-      gasEstimate: '$8',
+      gasEstimate: '$8.20',
+      netProfit: '+$1.30',
+      risk: 'Medium',
     },
     {
       id: 3,
+      token: 'MATIC/USDT',
       fromChain: 'Polygon',
       toChain: 'Ethereum',
-      token: 'MATIC/USDC',
-      profit: '+3.1%',
+      profit: '+3.2%',
       amount: '$2,000',
-      gasEstimate: '$25',
+      gasEstimate: '$18.75',
+      netProfit: '+$45.25',
+      risk: 'Low',
     },
   ]
 
@@ -123,17 +138,39 @@ export default function Arbitrage() {
     }
   }
 
-  const executeArbitrage = async (opportunity: any) => {
-    setIsLoading(true)
-    try {
-      // Simulate arbitrage execution
-      await new Promise(resolve => setTimeout(resolve, 2000))
-      toast.success(`Arbitrage executed! Profit: ${opportunity.profit}`)
-    } catch (error) {
-      toast.error('Arbitrage failed. Please try again.')
-    } finally {
-      setIsLoading(false)
+  const handleExecute = async () => {
+    if (!isConnected) {
+      alert('Please connect your wallet first')
+      return
     }
+    
+    if (!amount || Number(amount) <= 0) {
+      alert('Please enter a valid amount')
+      return
+    }
+
+    setIsExecuting(true)
+    // Simulate transaction
+    setTimeout(() => {
+      setIsExecuting(false)
+      alert('Arbitrage executed successfully!')
+      setAmount('')
+      setSelectedOpportunity(null)
+    }, 2000)
+  }
+
+  if (!isConnected) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <AlertCircle className="h-16 w-16 text-secondary-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-white mb-2">Wallet Not Connected</h2>
+          <p className="text-secondary-400 mb-4">
+            Connect your wallet to start arbitrage trading
+          </p>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -142,241 +179,127 @@ export default function Arbitrage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-white">Arbitrage Trading</h1>
-          <p className="text-secondary-400">Execute cross-chain arbitrage with wallet integration</p>
+          <p className="text-secondary-400">
+            Execute cross-chain arbitrage opportunities
+          </p>
         </div>
-        <div className="flex items-center space-x-4">
-          <button className="btn-outline flex items-center space-x-2">
-            <Settings size={16} />
-            <span>Settings</span>
-          </button>
-          <button className="btn-primary flex items-center space-x-2">
-            <RefreshCw size={16} />
-            <span>Refresh</span>
-          </button>
+        <div className="text-right">
+          <p className="text-sm text-secondary-400">Available Balance</p>
+          <p className="text-xl font-bold text-white">
+            {balance?.formatted} {balance?.symbol}
+          </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Manual Swap */}
-        <div className="card">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-lg font-semibold text-white">Manual Swap</h2>
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="autoMode"
-                checked={isAutoMode}
-                onChange={(e) => setIsAutoMode(e.target.checked)}
-                className="rounded border-secondary-600 bg-secondary-700"
-              />
-              <label htmlFor="autoMode" className="text-sm text-secondary-300">
-                Auto Mode
-              </label>
-            </div>
-          </div>
-
-          {/* Chain Selection */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-secondary-300 mb-2">
-              Network
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              {SUPPORTED_CHAINS.map((network) => (
-                <button
-                  key={network.id}
-                  onClick={() => setSelectedChain(network.id)}
-                  className={`p-3 rounded-lg text-sm font-medium transition-colors ${
-                    selectedChain === network.id
-                      ? 'bg-primary-600 text-white'
-                      : 'bg-secondary-700 text-secondary-300 hover:bg-secondary-600'
-                  }`}
-                >
-                  {network.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Token Selection */}
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-secondary-300 mb-2">
-                From Token
-              </label>
-              <select
-                value={fromToken}
-                onChange={(e) => setFromToken(e.target.value)}
-                className="input"
-              >
-                {COMMON_TOKENS.map((token) => (
-                  <option key={token.symbol} value={token.symbol}>
-                    {token.symbol}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex justify-center">
-              <button className="p-2 rounded-full bg-secondary-700 hover:bg-secondary-600">
-                <ArrowRight size={16} className="text-secondary-300" />
-              </button>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-secondary-300 mb-2">
-                To Token
-              </label>
-              <select
-                value={toToken}
-                onChange={(e) => setToToken(e.target.value)}
-                className="input"
-              >
-                {COMMON_TOKENS.map((token) => (
-                  <option key={token.symbol} value={token.symbol}>
-                    {token.symbol}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-secondary-300 mb-2">
-                Amount
-              </label>
-              <input
-                type="number"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.0"
-                className="input"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-secondary-300 mb-2">
-                Slippage Tolerance (%)
-              </label>
-              <input
-                type="number"
-                value={slippage}
-                onChange={(e) => setSlippage(Number(e.target.value))}
-                step="0.1"
-                min="0.1"
-                max="50"
-                className="input"
-              />
-            </div>
-
-            {/* Get Quote Button */}
-            <button
-              onClick={handleGetQuote}
-              disabled={isLoading || !amount}
-              className="w-full btn-secondary"
-            >
-              {isLoading ? (
-                <div className="flex items-center space-x-2">
-                  <RefreshCw size={16} className="animate-spin" />
-                  <span>Getting Quote...</span>
-                </div>
-              ) : (
-                'Get Quote'
-              )}
-            </button>
-
-            {/* Quote Display */}
-            {quote && (
-              <div className="p-4 rounded-lg bg-secondary-700">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-secondary-400">Rate</span>
-                  <span className="text-sm text-white">1 {fromToken} = {quote.toTokenAmount} {toToken}</span>
-                </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-secondary-400">Gas Estimate</span>
-                  <span className="text-sm text-white">{quote.gasCost}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-secondary-400">Price Impact</span>
-                  <span className={`text-sm ${quote.priceImpact > 1 ? 'text-error-500' : 'text-success-500'}`}>
-                    {quote.priceImpact}%
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <button
-              onClick={handleSwap}
-              disabled={isLoading || !amount || !quote}
-              className="w-full btn-primary"
-            >
-              {isLoading ? (
-                <div className="flex items-center space-x-2">
-                  <RefreshCw size={16} className="animate-spin" />
-                  <span>Executing...</span>
-                </div>
-              ) : (
-                'Execute Swap'
-              )}
-            </button>
-          </div>
-        </div>
-
-        {/* Arbitrage Opportunities */}
-        <div className="card">
-          <h2 className="text-lg font-semibold text-white mb-6">Arbitrage Opportunities</h2>
-          
-          <div className="space-y-4">
-            {arbitrageOpportunities.map((opportunity) => (
+      {/* Opportunities Grid */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-white">Available Opportunities</h2>
+          <div className="space-y-3">
+            {opportunities.map((opportunity) => (
               <div
                 key={opportunity.id}
-                className="p-4 rounded-lg bg-secondary-700 border border-secondary-600"
+                className={`p-4 rounded-lg border cursor-pointer transition-colors ${
+                  selectedOpportunity === opportunity.id
+                    ? 'border-primary-500 bg-primary-500/10'
+                    : 'border-secondary-700 bg-secondary-800 hover:border-secondary-600'
+                }`}
+                onClick={() => setSelectedOpportunity(opportunity.id)}
               >
                 <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-2">
-                    <TrendingUp size={16} className="text-success-500" />
-                    <span className="font-medium text-white">{opportunity.token}</span>
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2 rounded-lg bg-green-500/10">
+                      <TrendingUp className="h-5 w-5 text-green-500" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-white">{opportunity.token}</h3>
+                      <p className="text-sm text-secondary-400">
+                        {opportunity.fromChain} <ArrowRight className="inline h-3 w-3" /> {opportunity.toChain}
+                      </p>
+                    </div>
                   </div>
-                  <span className="text-success-500 font-semibold">{opportunity.profit}</span>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-4 mb-4 text-sm">
-                  <div>
-                    <span className="text-secondary-400">From:</span>
-                    <span className="text-white ml-2">{opportunity.fromChain}</span>
-                  </div>
-                  <div>
-                    <span className="text-secondary-400">To:</span>
-                    <span className="text-white ml-2">{opportunity.toChain}</span>
-                  </div>
-                  <div>
-                    <span className="text-secondary-400">Amount:</span>
-                    <span className="text-white ml-2">{opportunity.amount}</span>
-                  </div>
-                  <div>
-                    <span className="text-secondary-400">Gas:</span>
-                    <span className="text-white ml-2">{opportunity.gasEstimate}</span>
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-green-500">{opportunity.profit}</p>
+                    <p className="text-sm text-secondary-400">{opportunity.risk} Risk</p>
                   </div>
                 </div>
-
-                <button
-                  onClick={() => executeArbitrage(opportunity)}
-                  disabled={isLoading}
-                  className="w-full btn-primary"
-                >
-                  {isLoading ? 'Executing...' : 'Execute Arbitrage'}
-                </button>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-secondary-400">Amount</p>
+                    <p className="text-white font-medium">{opportunity.amount}</p>
+                  </div>
+                  <div>
+                    <p className="text-secondary-400">Gas Estimate</p>
+                    <p className="text-white font-medium">{opportunity.gasEstimate}</p>
+                  </div>
+                  <div>
+                    <p className="text-secondary-400">Net Profit</p>
+                    <p className="text-green-500 font-medium">{opportunity.netProfit}</p>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
+        </div>
 
-          {arbitrageOpportunities.length === 0 && (
-            <div className="text-center py-8">
-              <AlertTriangle size={48} className="text-secondary-400 mx-auto mb-4" />
-              <p className="text-secondary-400">No arbitrage opportunities found</p>
-              <p className="text-sm text-secondary-500 mt-2">
-                Check back later or try different token pairs
-              </p>
-            </div>
-          )}
+        {/* Execution Panel */}
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold text-white">Execute Trade</h2>
+          <div className="p-6 rounded-lg bg-secondary-800 border border-secondary-700">
+            {selectedOpportunity ? (
+              <div className="space-y-4">
+                <div className="flex items-center space-x-3">
+                  <CheckCircle className="h-5 w-5 text-green-500" />
+                  <span className="text-white font-medium">
+                    {opportunities.find(o => o.id === selectedOpportunity)?.token}
+                  </span>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-secondary-400 mb-2">
+                    Amount to Trade
+                  </label>
+                  <input
+                    type="number"
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    placeholder="Enter amount"
+                    className="w-full px-3 py-2 bg-secondary-700 border border-secondary-600 rounded-lg text-white placeholder-secondary-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-secondary-400">Expected Profit:</span>
+                    <span className="text-green-500 font-medium">+2.8%</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-secondary-400">Gas Fee:</span>
+                    <span className="text-white">~$12.50</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-secondary-400">Net Profit:</span>
+                    <span className="text-green-500 font-medium">+$15.50</span>
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleExecute}
+                  disabled={isExecuting || !amount}
+                  className="w-full btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isExecuting ? 'Executing...' : 'Execute Arbitrage'}
+                </button>
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <TrendingUp className="h-12 w-12 text-secondary-400 mx-auto mb-4" />
+                <p className="text-secondary-400">
+                  Select an opportunity to execute
+                </p>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
