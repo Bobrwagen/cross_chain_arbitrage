@@ -12,7 +12,7 @@ const express = require("express");
 const axios   = require("axios");
 const http    = require('http');
 const { Server } = require('socket.io');
-
+const DEMO = false
 
 // --- INIT ---
 const app  = express();
@@ -29,7 +29,6 @@ io.on('connection', (socket) => {
   console.log(`🔌  Client connected: ${socket.id}`);
 
   socket.on('disconnect', () => {
-    clearInterval(timer);
     console.log(`❌  Client disconnected: ${socket.id}`);
   });
 });
@@ -41,6 +40,7 @@ const CHAINS = [
   { chain: 137,   label: "polygon"  },
   { chain: 42161, label: "arbitrum" }
 ];
+// TODO more chains
 
 /* ---------- per-chain WETH ⇄ USDC routes ----------------- */
 const fromToMap = {
@@ -66,6 +66,8 @@ const fromToMap = {
                     to:   "0x82af49447d8a07e3bd95bd0d56f35241523fbab1" }
   }
 };
+
+// TODO extend
 
 /* ---------- runtime state -------------------------------- */
 const state = {
@@ -95,6 +97,9 @@ async function wethAmountWei() {
     throw err;
   }
 }
+
+
+
 
 /* ----------------------------------------------------------
    2) native-coin USD cache  (ETH / MATIC)
@@ -274,3 +279,33 @@ app.listen(PORT, () => {
   console.log(`🚀  Bot listening on http://localhost:${PORT}`);
   detectorLoop();
 });
+
+const dummyOpps = [
+  { ts: Date.now(), buyOn: "polygon", sellOn: "polygon", expectedProfitUsd: 12.45, latencyMs: 128 },
+  { ts: Date.now(), buyOn: "arbitrum", sellOn: "arbitrum", expectedProfitUsd: 9.87, latencyMs: 215 },
+  { ts: Date.now(), buyOn: "ethereum", sellOn: "ethereum", expectedProfitUsd: 22.13, latencyMs: 180 },
+  { ts: Date.now(), buyOn: "polygon", sellOn: "polygon", expectedProfitUsd: 5.72, latencyMs: 97 },
+  { ts: Date.now(), buyOn: "arbitrum", sellOn: "arbitrum", expectedProfitUsd: 17.34, latencyMs: 200 },
+  { ts: Date.now(), buyOn: "ethereum", sellOn: "ethereum", expectedProfitUsd: 8.19, latencyMs: 174 },
+  { ts: Date.now(), buyOn: "polygon", sellOn: "polygon", expectedProfitUsd: 14.66, latencyMs: 150 },
+  { ts: Date.now(), buyOn: "arbitrum", sellOn: "arbitrum", expectedProfitUsd: 10.02, latencyMs: 132 },
+  { ts: Date.now(), buyOn: "ethereum", sellOn: "ethereum", expectedProfitUsd: 6.38, latencyMs: 196 },
+  { ts: Date.now(), buyOn: "polygon", sellOn: "polygon", expectedProfitUsd: 19.25, latencyMs: 140 }
+];
+
+let dummyIndex = 0;
+if (DEMO) {
+const dummyTimer = setInterval(() => {
+  if (dummyIndex >= dummyOpps.length) {
+    clearInterval(dummyTimer);
+    console.log("✅ Finished injecting dummy opportunities.");
+    return;
+  }
+
+  const opp = { ...dummyOpps[dummyIndex], ts: Date.now() }; // fresh timestamp
+  state.opportunities.unshift(opp);
+  state.opportunities = state.opportunities.slice(0, 100); // cap size
+  io.emit("arb-opportunity", [opp]);
+  dummyIndex++;
+}, 15_000);
+}
