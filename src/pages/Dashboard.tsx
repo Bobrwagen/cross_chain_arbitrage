@@ -1,6 +1,6 @@
 import { useAccount, useBalance } from 'wagmi';
 import { useEffect, useState } from 'react';
-import { DollarSign, Activity } from 'lucide-react';
+import { DollarSign, Activity, TrendingUp, TrendingDown } from 'lucide-react';
 
 // Etherscan API Key should be stored in .env as VITE_ETHERSCAN_API_KEY
 const ETHERSCAN_API_KEY = (import.meta as any).env.VITE_ETHERSCAN_API_KEY;
@@ -17,6 +17,7 @@ type Transaction = {
 // ...existing code...
 // ...existing code...
 export default function Dashboard() {
+
   const { address, isConnected } = useAccount();
   const suiAddress = address;
   const solanaAddress = address;
@@ -74,6 +75,12 @@ export default function Dashboard() {
   const totalValue = isConnected && ethBalance && arbitrumBalance 
     ? (Number(ethBalance.formatted || 0) + Number(arbitrumBalance.formatted || 0)) * 2000 // Approximate ETH price
     : 0;
+
+  // Dummy: Replace with real invested value
+  const investedUSD = 1000; // TODO: Replace with real invested value
+  // Performance calculation (dummy, replace with real logic)
+  const performance = investedUSD ? ((totalValue - investedUSD) / investedUSD) * 100 : 0;
+  const isPositive = performance >= 0;
 
   useEffect(() => {
     const fetchAllTxs = async () => {
@@ -150,47 +157,70 @@ export default function Dashboard() {
     fetchAllTxs();
   }, [isConnected, address, suiAddress, solanaAddress]);
 
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-          <p className="text-secondary-400">
-            {isConnected 
-              ? `Welcome back! Your wallet: ${address?.slice(0, 6)}...${address?.slice(-4)}`
-              : 'Connect your wallet to start trading'
-            }
-          </p>
-        </div>
+      <div className="mb-2 flex flex-col lg:flex-row lg:items-end lg:justify-between">
+        <h1 className="text-4xl font-extrabold text-white drop-shadow-lg tracking-tight">Dashboard</h1>
         {isConnected && (
-          <div className="text-right">
-            <p className="text-sm text-secondary-400">Total Portfolio Value</p>
-            <p className="text-xl font-bold text-white">
-              ${totalValue.toFixed(2)}
-            </p>
+          <div className="mt-2 lg:mt-0 lg:text-right">
+            <p className="text-lg font-semibold text-white drop-shadow-lg">Total Balance</p>
+            <p className="text-3xl font-extrabold text-primary-400 drop-shadow-lg">${totalValue.toFixed(2)}</p>
           </div>
         )}
       </div>
 
-      {/* Chain Balances */}
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {chainBalances.map((chain) => (
-          <div
-            key={chain.name}
-            className="rounded-lg bg-secondary-800 p-6 border border-secondary-700"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-secondary-400">{chain.name}</p>
-                <p className="text-2xl font-bold text-white">{chain.balance}</p>
-              </div>
-              <div className="p-2 rounded-lg bg-primary-500/10">
-                <DollarSign className="h-6 w-6 text-primary-500" />
-              </div>
+      {/* Performance & Chain Balances (side by side, straight) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Performance Block (left) */}
+        <div className="bg-secondary-800 rounded-lg p-8 border border-secondary-700 flex flex-col justify-between shadow-2xl h-full min-h-[340px]">
+          <div className="flex flex-col items-center justify-center mb-6 w-full h-full">
+            {isPositive ? (
+              <TrendingUp className="w-2/3 h-48 md:h-64 text-green-500 drop-shadow-[0_2px_16px_rgba(34,197,94,0.7)] mx-auto" style={{maxWidth:'320px', minWidth:'120px'}} />
+            ) : (
+              <TrendingDown className="w-2/3 h-48 md:h-64 text-red-500 drop-shadow-[0_2px_16px_rgba(239,68,68,0.7)] mx-auto" style={{maxWidth:'320px', minWidth:'120px'}} />
+            )}
+            <h2 className="text-4xl md:text-5xl font-extrabold text-white drop-shadow-lg mt-4 text-center">Performance</h2>
+            <div className="flex flex-col items-center gap-2 mt-2">
+              <span className={`text-6xl md:text-7xl font-extrabold drop-shadow-lg ${isPositive ? 'text-green-400' : 'text-red-400'}`}>{performance.toFixed(2)}%</span>
+              <span className="text-secondary-400 text-2xl font-semibold">{isPositive ? 'Profit' : 'Loss'}</span>
             </div>
+            <p className="text-secondary-400 text-lg mt-2 text-center">since initial investment (${investedUSD.toFixed(2)})</p>
           </div>
-        ))}
+          <div className="flex gap-2 mb-6 justify-center">
+            {['1D', '1W', '1M', '1Y'].map((label) => (
+              <button
+                key={label}
+                className="px-4 py-1 rounded-full border border-primary-400 text-primary-400 font-semibold bg-secondary-900 hover:bg-primary-400 hover:text-white transition drop-shadow"
+                // TODO: Add onClick logic to update performance range
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {/* Chain Balances (right) */}
+        <div className="flex flex-col justify-between h-full min-h-[340px]">
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-1 h-full">
+            {chainBalances.map((chain) => (
+              <div
+                key={chain.name}
+                className="rounded-lg bg-secondary-700 p-6 border border-secondary-600 flex flex-col items-start shadow-lg h-full"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <div>
+                    <p className="text-base font-medium text-secondary-300 drop-shadow-lg">{chain.name}</p>
+                    <p className="text-2xl font-bold text-white drop-shadow-lg">{chain.balance}</p>
+                  </div>
+                  <div className="p-2 rounded-lg bg-primary-500/10">
+                    <DollarSign className="h-7 w-7 text-primary-500 drop-shadow-lg" />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* Trading Status */}
@@ -252,9 +282,9 @@ export default function Dashboard() {
             <div className="text-red-500">{txError}</div>
           ) : !isConnected ? (
             <div className="text-secondary-400">Connect your wallet to see your transactions.</div>
-          ) : transactions && transactions.length === 0 ? (
+          ) : Array.isArray(transactions) && transactions.length === 0 ? (
             <div className="text-secondary-400">No transactions found for this wallet.</div>
-          ) : transactions && transactions.length > 0 ? (
+          ) : Array.isArray(transactions) && transactions.length > 0 ? (
             <table className="min-w-full divide-y divide-secondary-700">
               <thead>
                 <tr>
@@ -267,7 +297,7 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-secondary-700">
-                {transactions.map((tx) => (
+                {Array.isArray(transactions) && transactions.map((tx) => (
                   <tr key={tx.hash + tx.chain}>
                     <td className="px-4 py-2 text-white">
                       <a
