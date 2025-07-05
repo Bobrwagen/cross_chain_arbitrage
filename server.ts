@@ -39,7 +39,9 @@ const headers = {
   Authorization: "Bearer " + process.env.INCH_API_KEY,
 };
 
-const amount = 50.0; // for each single chain
+const amount = 60_000; // for each single chain
+const MD_THRESHOLD: number = 0.05;
+const TIME_THRESHOLD: number = 60;
 
 const fromToMap = {
   // === ETHEREUM ===
@@ -89,61 +91,133 @@ async function getWethPrice(): Promise<string> {
   return BigInt(wethAmount * 1e18).toString();
 }
 
-async function fetchExchangeRates(chain: number, src: string, dst: string) {
-  const url = `https://api.1inch.dev/swap/v6.1/${chain.toString()}/quote`;
-  const price: string = await getWethPrice();
+async function fetchExchangeRates(
+  chain: number,
+  src: string,
+  dst: string,
+  amount: string
+) {
+  const url = `https://api.1inch.dev/swap/v6.1/${chain}/quote`;
+
   const config = {
     headers,
     params: {
       src: src,
       dst: dst,
-      amount: price,
+      amount: amount,
       includeGas: "true",
     },
-
     paramsSerializer: {
       indexes: null,
     },
   };
 
+  const start = Date.now();
   try {
     const response = await axios.get(url, config);
-    console.log(response.data);
-    return [response.data.dstAmount, response.data.gas];
+    const end = Date.now();
+    const latencyMs = end - start;
+
+    return {
+      dstAmountWei: BigInt(response.data.dstAmount),
+      gasWei: BigInt(response.data.gas),
+      latencyMs,
+      quoteTime: end,
+    };
   } catch (error) {
-    console.error(error);
+    console.error(
+      `[Quote Error] ${chain}: ${src.slice(0, 6)} → ${dst.slice(0, 6)}`,
+      error.response?.data || error.message
+    );
+    return null;
   }
 }
 
 async function runExchanges() {
-  const exchanges : any = [];
+  const priceWei = await getWethPrice();
+  const quotes: any[] = [];
+
   for (const { chain: chainId, label } of CHAINS) {
     const pairs = fromToMap[label];
-
     if (!pairs) continue;
 
-    for (const pairName in pairs) {
-      const { from, to } = pairs[pairName];
+    for (const pairKey in pairs) {
+      const { from, to } = pairs[pairKey];
+      const toLabel = pairKey.split("_").pop();
 
-      console.log(`🔁 ${label.toUpperCase()} | ${pairName}`);
-      const result = await fetchExchangeRates(chainId, from, to);
+      const result = await fetchExchangeRates(chainId, from, to, priceWei);
+      if (!result) continue;
 
-      if (result) {
-        const [dstAmount, gas] = result;
-        exchanges.push(result);
-        console.log(`→ dstAmount: ${dstAmount}`);
-        console.log(`→ gas: ${gas}`);
-      }
+      quotes.push({
+        fromChain: label,
+        toChain: toLabel,
+        inputWei: BigInt(priceWei),
+        ...result,
+      });
     }
   }
-  return exchanges;
+
+  return quotes;
 }
 
-async function determineArbitrage(exchanges) {
-  const res = [];
+function marginalDifference(q, rev) {
+  const qIn = Number(q.inputWei);
+  const qOut = Number(q.dstAmountWei);
+  const revIn = Number(rev.inputWei);
+  const revOut = Number(rev.dstAmountWei);
+
+  const term1 = Math.abs(qIn - revOut) / revOut;
+  const term2 = Math.abs(revIn - qOut) / qOut;
+
+  return Math.min(term1, term2);
 }
 
+function profit_P(q, rev, cost) {
+  const out_m = BigInt(q.dstAmountWei);
+  const in_n = BigInt(rev.inputWei);
+  return out_m - in_n - BigInt(cost);
+}
 
+/* -----------------------------------------------------------
+   2️⃣  determineArbitrage – paper-style delta_ / lambda filtering
+   ----------------------------------------------------------- */
+function determineArbitrage(quotes: any[]) {
+  const opportunities: any[] = [];
+
+  const book: Record<string, any> = {};
+  const key = (a: string, b: string) => `${a}->${b}`;
+
+  for (const q of quotes) {
+    book[key(q.fromChain, q.toChain)] = q;
+  }
+
+  for (const q of quotes) {
+    const rev = book[key(q.toChain, q.fromChain)];
+    if (!rev) continue;
+
+    const now = Date.now();
+    const ageFwdSec = (now - q.quoteTime) / 1000;
+    const ageRevSec = (now - rev.quoteTime) / 1000;
+    const latencyDeltaSec = Math.abs(q.latencyMs - rev.latencyMs) / 1000;
+
+    //MD
+    const md = marginalDifference(q, rev);
+    const gas_cost = q.gasWei + rev.gasWei;
+    const profit = profit_P(q, rev, gas_cost);
+    if (profit > 0) {
+      opportunities.push({
+        ts: now,
+        buyOn: q.fromChain,
+        sellOn: q.toChain,
+        risky : false,
+        expectedProfit: profit,
+        latencyDeltaSec: latencyDeltaSec.toFixed(3),
+      });
+    }
+  }
+
+  return opportunities;
+}
 
 // ---------- 4.  Express routes ----------
 app.get("/prices", (_req, res) => {
