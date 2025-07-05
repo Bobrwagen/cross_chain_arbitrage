@@ -1,6 +1,7 @@
+
 import { useAccount, useBalance } from 'wagmi';
 import { useEffect, useState } from 'react';
-// import { SuiClient, getFullnodeUrl } from '@mysten/sui';
+import { useTradesStore } from '../hooks/useTradesStore';
 import { Connection, PublicKey } from '@solana/web3.js';
 import { Activity, TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -17,9 +18,10 @@ type Transaction = {
   explorerUrl: string;
 };
 
-// ...existing code...
-export default function Dashboard() {
 
+
+
+export default function Dashboard() {
   const { address, isConnected } = useAccount();
   const suiAddress = address;
   const solanaAddress = address;
@@ -35,30 +37,13 @@ export default function Dashboard() {
     chainId: 42161, // Arbitrum One
   });
 
+  // Zustand trades store
+  const trades = useTradesStore((state) => state.trades);
+
   // Sui balance
   const [suiBalance, setSuiBalance] = useState<string>(isConnected ? 'Loading...' : 'Connect wallet to display amount');
   // Solana balance
   const [solanaBalance, setSolanaBalance] = useState<string>(isConnected ? 'Loading...' : 'Connect wallet to display amount');
-
-  // Sui balance fetching is disabled due to package issues.
-  // useEffect(() => {
-  //   const fetchSuiBalance = async () => {
-  //     if (!isConnected || !suiAddress) {
-  //       setSuiBalance('Connect wallet to display amount');
-  //       return;
-  //     }
-  //     try {
-  //       const suiClient = new SuiClient({ url: getFullnodeUrl('mainnet') });
-  //       const coins = await suiClient.getAllBalances({ owner: suiAddress });
-  //       const suiCoin = coins.find((c: any) => c.coinType.includes('sui'));
-  //       const suiAmount = suiCoin ? Number(suiCoin.totalBalance) / 1e9 : 0;
-  //       setSuiBalance(`${suiAmount.toFixed(4)} SUI`);
-  //     } catch (e) {
-  //       setSuiBalance('0.0 SUI');
-  //     }
-  //   };
-  //   fetchSuiBalance();
-  // }, [isConnected, suiAddress]);
 
   useEffect(() => {
     const fetchSolanaBalance = async () => {
@@ -142,8 +127,8 @@ export default function Dashboard() {
       + (parseFloat(solanaBalance) || 0) * prices.sol)
     : 0;
 
-  // TODO: Replace with real invested value from backend or user input
-  const investedUSD = undefined; // No dummy value
+  // Invested value: user input (local state)
+  const [investedUSD, setInvestedUSD] = useState<number | undefined>(undefined);
   const performance = investedUSD ? ((totalValue - investedUSD) / investedUSD) * 100 : undefined;
   const isPositive = performance !== undefined ? performance >= 0 : true;
 
@@ -239,7 +224,7 @@ export default function Dashboard() {
       {/* Performance & Chain Balances (side by side, straight) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Performance Block (left) */}
-        {investedUSD !== undefined && (
+        {true && (
           <div className="bg-secondary-800 rounded-lg p-6 border border-secondary-700 flex flex-col justify-between shadow-2xl h-full min-h-[240px] max-h-[320px]">
             <div className="flex flex-col items-center justify-center mb-6 w-full h-full">
               {isPositive ? (
@@ -252,7 +237,23 @@ export default function Dashboard() {
                 <span className={`text-5xl md:text-6xl font-extrabold drop-shadow-lg ${isPositive ? 'text-green-400' : 'text-red-400'}`}>{performance?.toFixed(2)}%</span>
                 <span className="text-secondary-400 text-xl font-semibold">{isPositive ? 'Profit' : 'Loss'}</span>
               </div>
-              <p className="text-secondary-400 text-base mt-2 text-center">since initial investment ({investedUSD !== undefined ? `$${Number(investedUSD).toFixed(2)}` : '-'})</p>
+              <p className="text-secondary-400 text-base mt-2 text-center">
+                since initial investment (
+                {investedUSD !== undefined ? (
+                  `$${Number(investedUSD).toFixed(2)}`
+                ) : (
+                  <input
+                    type="number"
+                    placeholder="Enter amount"
+                    className="bg-secondary-900 border border-secondary-700 rounded px-2 py-1 text-white w-24 text-center"
+                    onBlur={e => setInvestedUSD(Number(e.target.value) || undefined)}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') setInvestedUSD(Number((e.target as HTMLInputElement).value) || undefined);
+                    }}
+                  />
+                )}
+                )
+              </p>
             </div>
             <div className="flex gap-1 mb-2 justify-center">
               {['1D', '1W', '1M', '1Y'].map((label) => (
