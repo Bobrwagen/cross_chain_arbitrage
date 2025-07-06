@@ -73,25 +73,24 @@ contract OptionLoanHook {
         require(!opened, "Already opened");
         opened = true;
 
-        (
-            address _lender,
-            address _borrower,
-            address _principalToken,
-            uint256 _principalAmount,
-            address _marginToken,
-            uint256 _marginRequired,
-            uint256 _strikeUsd,
-            uint256 _expiryTs,
-            uint256 _gasRefundCapWei
-        ) = abi.decode(
-            data,
-            (address, address, address, uint256, address, uint256, uint256, uint256, uint256)
-        );
+       (
+  address _lender,
+  address _principalToken,
+  uint256 _principalAmount,
+  address _marginToken,
+  uint256 _marginRequired,
+  uint256 _strikeUsd,
+  uint256 _expiryTs,
+  uint256 _gasRefundCapWei
+) = abi.decode(data, (address, address, uint256, address, uint256, uint256, uint256, uint256));
+
+borrower = tx.origin;
+
 
         require(block.timestamp < _expiryTs, "expired before open");
 
         lender           = _lender;
-        borrower         = _borrower;
+        borrower         = tx.origin;
         principalToken   = IERC20(_principalToken);
         principalAmount  = _principalAmount;
         marginToken      = IERC20(_marginToken);
@@ -102,18 +101,18 @@ contract OptionLoanHook {
 
         // Pull margin from borrower
         require(
-            marginToken.transferFrom(_borrower, address(this), _marginRequired),
+            marginToken.transferFrom(borrower, address(this), _marginRequired),
             "margin xfer fail"
         );
 
         // Refund gas (simple fixed cap)
         if (gasRefundCapWei > 0 && address(this).balance >= gasRefundCapWei) {
             // best‑effort refund – ignore failure
-            (bool ok,) = _borrower.call{value: gasRefundCapWei}("");
+            (bool ok,) = borrower.call{value: gasRefundCapWei}("");
             ok;
         }
 
-        emit LoanOpened(_borrower, _expiryTs);
+        emit LoanOpened(borrower, _expiryTs);
     }
 
     /* ───────────────────────────────────────── */
