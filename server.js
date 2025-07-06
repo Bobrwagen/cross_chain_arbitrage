@@ -87,7 +87,7 @@ const state = {
   lastUpdated: 0,
   opportunities: [{
     ts: Date.now(),
-    buyOn: "polygon",
+    buyOn: "ethereum",
     sellOn: "polygon",
     expectedProfitUsd: 12.45,
     latencyMs: 128,
@@ -291,6 +291,7 @@ async function detectorLoop() {
       if (!price) throw new Error("No WETH/USD price from CryptoCompare");
       const ethValue = 0.1; // 10 cents
       const ethAmount = ethValue / price;
+      
       const wei = ethers.parseUnits(ethAmount.toFixed(18), 18);
       const quotes = await gatherQuotes(wei);
       const opps = findArb(quotes);
@@ -310,19 +311,19 @@ async function detectorLoop() {
         const weth = fromToMap[chain].weth_to_usdc.from;
         const usdc = fromToMap[chain].usdc_to_weth.from;
 
-        console.log("a");
 
         await sign.signAndOrderFromServer({
-          rpc,
+          rpc : rpc,
           privKey: process.env.PRIV_KEY,
-          lop,
-          hook,
-          chainId,
-          wei,
+          lop : lop,
+          hook : hook,
+          chainId : chainId,
+          eth : wei,
           principalToken: weth,
           marginToken: usdc,
           makerAsset: weth,
           takerAsset: usdc,
+          makingAmount : wei,
           apiKey: process.env["1INCH_API_KEY"],
         });
 
