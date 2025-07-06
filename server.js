@@ -85,13 +85,15 @@ const fromToMap = {
 /* ---------- runtime state -------------------------------- */
 const state = {
   lastUpdated: 0,
-  opportunities: [{
-    ts: Date.now(),
-    buyOn: "ethereum",
-    sellOn: "polygon",
-    expectedProfitUsd: 12.45,
-    latencyMs: 128,
-  },], // test opportunity
+  opportunities: [
+    {
+      ts: Date.now(),
+      buyOn: "ethereum",
+      sellOn: "polygon",
+      expectedProfitUsd: 12.45,
+      latencyMs: 128,
+    },
+  ],
 };
 
 /* ----------------------------------------------------------
@@ -119,9 +121,6 @@ async function wethAmountWei() {
   }
 }
 
-/* ----------------------------------------------------------
-   2) native-coin USD cache  (ETH / MATIC)
-   ---------------------------------------------------------- */
 const PRICE_TTL_MS = 30_000; // 30 s
 const symbolByChain = { 1: "ETH", 42161: "ETH", 137: "MATIC" };
 const _priceCache = {};
@@ -291,12 +290,12 @@ async function detectorLoop() {
       if (!price) throw new Error("No WETH/USD price from CryptoCompare");
       const ethValue = 0.1; // 10 cents
       const ethAmount = ethValue / price;
-      
+
       const wei = ethers.parseUnits(ethAmount.toFixed(18), 18);
       const quotes = await gatherQuotes(wei);
       const opps = findArb(quotes);
 
-      // demo 
+      // demo
       if (opps.length || state.opportunities.length) {
         const opp = opps[0] ? opps[0] : state.opportunities[0];
         const chain = opp.buyOn;
@@ -311,19 +310,18 @@ async function detectorLoop() {
         const weth = fromToMap[chain].weth_to_usdc.from;
         const usdc = fromToMap[chain].usdc_to_weth.from;
 
-
         await sign.signAndOrderFromServer({
-          rpc : rpc,
+          rpc: rpc,
           privKey: process.env.PRIV_KEY,
-          lop : lop,
-          hook : hook,
-          chainId : chainId,
-          eth : wei,
+          lop: lop,
+          hook: hook,
+          chainId: chainId,
+          eth: wei,
           principalToken: weth,
           marginToken: usdc,
           makerAsset: weth,
           takerAsset: usdc,
-          makingAmount : wei,
+          makingAmount: wei,
           apiKey: process.env["1INCH_API_KEY"],
         });
 
@@ -348,8 +346,6 @@ async function detectorLoop() {
     await new Promise((r) => setTimeout(r, SCAN_INTERVAL_MS));
   }
 }
-
-
 
 /* ---------- express API ---------------------------------- */
 app.get("/", (_req, res) => res.send("Cross-chain arb bot online"));
