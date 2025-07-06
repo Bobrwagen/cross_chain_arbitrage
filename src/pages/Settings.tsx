@@ -91,7 +91,7 @@ export default function Settings() {
           onChange: setSlippageTolerance,
         },
         {
-          name: 'Auto Execute Trades',
+          name: 'Automated Trading',
           value: autoExecute,
           type: 'toggle',
           onChange: setAutoExecute,
@@ -142,14 +142,14 @@ export default function Settings() {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-white">Settings</h1>
-        <p className="text-secondary-400">
+        <h1 className="text-4xl font-bold text-white px-6">Settings</h1>
+        <p className="text-secondary-400 px-6">
           Manage your trading preferences and wallet settings
         </p>
       </div>
 
       {/* Settings Sections */}
-      <div className="space-y-6">
+      <div className="space-y-6 px-4">
         {settingsSections.map((section) => (
           <div key={section.title} className="rounded-lg bg-secondary-800 border border-secondary-700">
             <div className="px-6 py-4 border-b border-secondary-700">
@@ -210,7 +210,7 @@ export default function Settings() {
       </div>
 
       {/* Security Section */}
-      <div className="rounded-lg bg-secondary-800 border border-secondary-700">
+      <div className="rounded-lg bg-secondary-800 border border-secondary-700 px-6">
         <div className="px-6 py-4 border-b border-secondary-700">
           <div className="flex items-center space-x-3">
             <Shield className="h-5 w-5 text-green-500" />

@@ -43,11 +43,11 @@ export default function Dashboard() {
 
   // --- Mock/Placeholder Data ---
   // In the future, this data will come from the Walrus API
-  const totalVolume = trades.reduce((sum, trade) => sum + (trade.status === 'purchased' ? trade.amount : 0), 0);
-  const openTradesCount = trades.filter(t => t.status === 'open').length;
-  const completedTradesCount = trades.filter(t => t.status === 'purchased').length;
-  const averageProfit = trades.length > 0 ? trades.reduce((sum, t) => sum + t.profit, 0) / trades.length : 0;
-  const recentTrades = [...trades].sort((a, b) => parseInt(b.id) - parseInt(a.id)).slice(0, 5);
+  const totalVolume = "213.65";
+  const openTradesCount = "24";
+  const completedTradesCount = "16";
+  const averageProfit = 0.76;
+  const recentTrades = ["ETH -> POL", "ARB -> POL", "POL -> ETH", "ETH -> POL", "ARB -> POL", "POL -> ETH"] // [...trades].sort((a, b) => parseInt(b.id) - parseInt(a.id)).slice(0, 5);
 
   if (!address) {
     return (
@@ -118,7 +118,7 @@ export default function Dashboard() {
           <CardContent>
             <div className="space-y-2">
                 {recentTrades.length > 0 ? (
-                    recentTrades.map(trade => <RecentTradeRow key={trade.id} trade={trade} />)
+                    recentTrades.map(trade => <h2 className='text-2xl font-semibold'>{trade}</h2>)
                 ) : (
                     <p className="text-secondary-400 text-center py-8">No recent trades found.</p>
                 )}

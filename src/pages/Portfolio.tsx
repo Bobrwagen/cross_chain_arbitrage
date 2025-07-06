@@ -74,7 +74,7 @@ export default function Portfolio() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 px-6">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-white">Portfolio</h1>
