@@ -1,4 +1,4 @@
-import Arbitrage from 0xArbitrage
+import Arbitrage from 0xc4ba79aaa382dc54
 
 transaction(fromAsset: String, fromChain: String, toAsset: String, toChain: String, amount: UFix64, profit: UFix64, expiry: UFix64) {
 
