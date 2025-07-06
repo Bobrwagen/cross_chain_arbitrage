@@ -5,7 +5,8 @@ import {
   TrendingUp, 
   Wallet, 
   Settings as SettingsIcon,
-  PlusSquare
+  PlusSquare,
+  BarChart2 // New icon for analytics
 } from 'lucide-react'
 import { Toaster } from 'react-hot-toast';
 
@@ -15,8 +16,8 @@ interface LayoutProps {
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: Home },
-  { name: 'Create Trade', href: '/create', icon: PlusSquare },
   { name: 'Arbitrage', href: '/arbitrage', icon: TrendingUp },
+  { name: 'Create Trade', href: '/create', icon: PlusSquare },
   { name: 'Portfolio', href: '/portfolio', icon: Wallet },
   { name: 'Settings', href: '/settings', icon: SettingsIcon },
 ]
@@ -25,11 +26,14 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation()
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen bg-secondary-900 text-white">
       {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-gray-200 p-4">
-        <h1 className="text-xl font-bold mb-8 pt-4">Cross-Chain Arbitrage</h1>
-        <nav className="space-y-2">
+      <div className="w-64 bg-secondary-950 border-r border-secondary-800 p-4 flex flex-col">
+        <div className="flex items-center pt-4 pb-8">
+            <BarChart2 className="h-8 w-8 mr-3 text-primary-500" />
+            <h1 className="text-2xl font-bold text-white">Chaingain</h1>
+        </div>
+        <nav className="space-y-2 flex-1">
           {navigation.map((item) => {
             const isActive = location.pathname === item.href
             const Icon = item.icon
@@ -37,11 +41,13 @@ export default function Layout({ children }: LayoutProps) {
               <Link
                 key={item.name}
                 to={item.href}
-                className={`flex items-center px-4 py-2 rounded-lg ${
-                  isActive ? 'bg-blue-50 text-blue-600' : 'text-gray-600 hover:bg-gray-50'
+                className={`flex items-center px-4 py-3 rounded-lg transition-colors ${
+                  isActive 
+                    ? 'bg-primary-500 text-white' 
+                    : 'text-secondary-300 hover:bg-secondary-800 hover:text-white'
                 }`}
               >
-                <Icon className="mr-3 h-5 w-5" />
+                <Icon className="mr-4 h-5 w-5" />
                 {item.name}
               </Link>
             )
@@ -50,10 +56,18 @@ export default function Layout({ children }: LayoutProps) {
       </div>
 
       {/* Main content */}
-      <div className="flex-1 p-8">
-        <Toaster position="bottom-right" />
+      <main className="flex-1">
+        <Toaster 
+            position="bottom-right" 
+            toastOptions={{
+                style: {
+                    background: '#333',
+                    color: '#fff',
+                },
+            }}
+        />
         {children}
-      </div>
+      </main>
     </div>
   )
 }

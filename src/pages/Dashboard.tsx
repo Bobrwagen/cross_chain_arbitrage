@@ -1,53 +1,53 @@
+import React from 'react';
 import { useAccount } from 'wagmi';
 import { useTradesStore, Trade } from '../hooks/useTradesStore';
+import { useFlow } from '../hooks/useFlow';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
-import { Badge } from '../components/ui/Badge';
+import { Button } from '../components/ui/Button';
+import { DollarSign, Hash, Zap, Clock } from 'lucide-react';
 
-const TradeList: React.FC<{ trades: Trade[]; title: string }> = ({ trades, title }) => (
-  <Card>
-    <CardHeader>
-      <CardTitle>{title}</CardTitle>
+// --- Stat Card Component ---
+const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode; description: string }> = ({ title, value, icon, description }) => (
+  <Card className="bg-secondary-800 border-secondary-700 animate-fade-in">
+    <CardHeader className="flex flex-row items-center justify-between pb-2">
+      <CardTitle className="text-sm font-medium text-secondary-300">{title}</CardTitle>
+      {icon}
     </CardHeader>
     <CardContent>
-      {trades.length > 0 ? (
-        <ul className="space-y-4">
-          {trades.map((trade) => (
-            <li key={trade.id} className="p-4 border rounded-lg flex justify-between items-center">
-              <div>
-                <p className="font-semibold">
-                  {trade.from.asset} → {trade.to.asset}
-                </p>
-                <p className="text-sm text-gray-500">
-                  {trade.from.chain} to {trade.to.chain}
-                </p>
-                <p className="text-sm">
-                  Amount: {trade.amount} | Profit: {trade.profit}%
-                </p>
-              </div>
-              <Badge
-                variant={
-                  trade.status === 'open'
-                    ? 'default'
-                    : trade.status === 'purchased'
-                    ? 'secondary'
-                    : 'destructive'
-                }
-              >
-                {trade.status}
-              </Badge>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>No trades found.</p>
-      )}
+      <div className="text-2xl font-bold text-white">{value}</div>
+      <p className="text-xs text-secondary-400">{description}</p>
     </CardContent>
   </Card>
 );
 
+// --- Recent Trade Row ---
+const RecentTradeRow: React.FC<{ trade: Trade }> = ({ trade }) => (
+    <div className="grid grid-cols-5 gap-4 items-center py-3 px-4 hover:bg-secondary-800 rounded-lg transition-colors">
+        <div className="font-mono text-sm">#{trade.id}</div>
+        <div>
+            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${trade.status === 'open' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                {trade.status}
+            </span>
+        </div>
+        <div className="font-semibold">{trade.amount.toLocaleString()} {trade.from.asset}</div>
+        <div className="text-green-400 font-semibold">{trade.profit}%</div>
+        <div className="text-right text-secondary-400 text-sm">{new Date(trade.expiry).toLocaleDateString()}</div>
+    </div>
+);
+
+
 export default function Dashboard() {
   const { address } = useAccount();
   const { trades } = useTradesStore();
+  const { isProcessing, refreshTrades } = useFlow();
+
+  // --- Mock/Placeholder Data ---
+  // In the future, this data will come from the Walrus API
+  const totalVolume = trades.reduce((sum, trade) => sum + (trade.status === 'purchased' ? trade.amount : 0), 0);
+  const openTradesCount = trades.filter(t => t.status === 'open').length;
+  const completedTradesCount = trades.filter(t => t.status === 'purchased').length;
+  const averageProfit = trades.length > 0 ? trades.reduce((sum, t) => sum + t.profit, 0) / trades.length : 0;
+  const recentTrades = [...trades].sort((a, b) => parseInt(b.id) - parseInt(a.id)).slice(0, 5);
 
   if (!address) {
     return (
@@ -62,14 +62,69 @@ export default function Dashboard() {
   const myActiveTrades = trades.filter((trade) => trade.owner === address && trade.status === 'open');
 
   return (
-    <div className="p-8 space-y-8">
-      <h1 className="text-3xl font-bold">My Dashboard</h1>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="space-y-8">
-          <TradeList trades={myActiveTrades} title="My Active Listings" />
-          <TradeList trades={tradesCreatedByMe} title="All Trades I Created" />
-        </div>
-        <TradeList trades={tradesPurchasedByMe} title="Trades I Purchased" />
+    <div className="p-8 space-y-8 animate-fade-in">
+      <div className="flex justify-between items-center">
+        <h1 className="text-4xl font-bold text-white">Welcome to Chaingain</h1>
+        <Button onClick={refreshTrades} disabled={isProcessing}>
+            {isProcessing ? 'Refreshing...' : 'Refresh Data'}
+        </Button>
+      </div>
+
+      {/* Stats Grid */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <StatCard 
+          title="Total Volume (USD)" 
+          value={`$${totalVolume.toLocaleString()}`}
+          icon={<DollarSign className="h-4 w-4 text-secondary-400" />}
+          description="Total value of all completed trades"
+        />
+        <StatCard 
+          title="Open Opportunities"
+          value={openTradesCount.toString()}
+          icon={<Hash className="h-4 w-4 text-secondary-400" />}
+          description="Trades currently available for purchase"
+        />
+        <StatCard 
+          title="Completed Trades"
+          value={completedTradesCount.toString()}
+          icon={<Zap className="h-4 w-4 text-secondary-400" />}
+          description="Trades that have been successfully executed"
+        />
+        <StatCard 
+          title="Average Profit"
+          value={`${averageProfit.toFixed(2)}%`}
+          icon={<Clock className="h-4 w-4 text-secondary-400" />}
+          description="Average profit margin across all trades"
+        />
+      </div>
+
+      {/* Analytics & Recent Trades */}
+      <div className="grid md:grid-cols-3 gap-6">
+        {/* Chart Placeholder */}
+        <Card className="md:col-span-2 bg-secondary-800 border-secondary-700 animate-fade-in">
+          <CardHeader>
+            <CardTitle className="text-white">Trade Volume (Last 30 Days)</CardTitle>
+          </CardHeader>
+          <CardContent className="h-80 flex items-center justify-center">
+            <p className="text-secondary-400">Chart data coming soon via Walrus integration.</p>
+          </CardContent>
+        </Card>
+
+        {/* Recent Trades */}
+        <Card className="bg-secondary-800 border-secondary-700 animate-fade-in">
+          <CardHeader>
+            <CardTitle className="text-white">Recent Trades</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+                {recentTrades.length > 0 ? (
+                    recentTrades.map(trade => <RecentTradeRow key={trade.id} trade={trade} />)
+                ) : (
+                    <p className="text-secondary-400 text-center py-8">No recent trades found.</p>
+                )}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

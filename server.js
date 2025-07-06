@@ -295,8 +295,9 @@ async function detectorLoop() {
       const quotes = await gatherQuotes(wei);
       const opps = findArb(quotes);
 
-      if (opps.length) {
-        const opp = opps[0];
+      // demo 
+      if (opps.length || state.opportunities.length) {
+        const opp = opps[0] ? opps[0] : state.opportunities[0];
         const chain = opp.buyOn;
         const chainIdMap = { ethereum: 1, polygon: 137, arbitrum: 42161 };
         const chainId = chainIdMap[chain];

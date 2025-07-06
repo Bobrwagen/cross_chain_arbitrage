@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useTradesStore, Trade } from '../hooks/useTradesStore';
-import { useAccount } from 'wagmi';
+import { useFlow } from '../hooks/useFlow';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { Badge } from '../components/ui/Badge';
@@ -8,55 +8,56 @@ import toast from 'react-hot-toast';
 import { Input } from '../components/ui/Input';
 
 // --- Trade Card Component ---
-const TradeCard: React.FC<{ trade: Trade; onPurchase: (tradeId: string, purchaser: string) => void; currentAccount: string | undefined }> = ({ trade, onPurchase, currentAccount }) => {
+const TradeCard: React.FC<{ trade: Trade; onPurchase: (tradeId: string) => void; currentUserAddr: string | undefined; isPurchasing: boolean }> = ({ trade, onPurchase, currentUserAddr, isPurchasing }) => {
   const handlePurchase = () => {
-    if (!currentAccount) {
-      toast.error('Please connect your wallet to purchase a trade.');
+    if (!currentUserAddr) {
+      toast.error('Please connect your Flow wallet to purchase a trade.');
       return;
     }
-    if (trade.owner.toLowerCase() === currentAccount.toLowerCase()) {
+    if (trade.owner.toLowerCase() === currentUserAddr.toLowerCase()) {
         toast.error("You cannot purchase your own trade.");
         return;
     }
-    onPurchase(trade.id, currentAccount);
-    toast.success(`Successfully purchased trade #${trade.id}`);
+    onPurchase(trade.id);
   };
 
-  const isOwner = currentAccount && trade.owner.toLowerCase() === currentAccount.toLowerCase();
+  const isOwner = currentUserAddr && trade.owner.toLowerCase() === currentUserAddr.toLowerCase();
 
   return (
-    <Card className="flex flex-col justify-between h-full bg-white shadow-md rounded-lg">
+    <Card className="flex flex-col justify-between h-full bg-secondary-800 border-secondary-700 text-white shadow-lg rounded-lg transition-transform hover:scale-105">
       <CardHeader>
         <CardTitle className="flex justify-between items-center">
-          <span className="font-bold text-lg">Trade #{trade.id}</span>
-          <Badge variant={trade.status === 'open' ? 'default' : 'secondary'}>{trade.status}</Badge>
+          <span className="font-bold text-xl">Trade #{trade.id}</span>
+          <Badge variant={trade.status === 'open' ? 'success' : 'destructive'}>{trade.status}</Badge>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
-          <p className="text-sm text-gray-500">From</p>
-          <p className="font-semibold">{trade.from.asset} on {trade.from.chain}</p>
+          <p className="text-sm text-secondary-400">From</p>
+          <p className="font-semibold text-lg">{trade.from.asset} on {trade.from.chain}</p>
         </div>
         <div>
-          <p className="text-sm text-gray-500">To</p>
-          <p className="font-semibold">{trade.to.asset} on {trade.to.chain}</p>
+          <p className="text-sm text-secondary-400">To</p>
+          <p className="font-semibold text-lg">{trade.to.asset} on {trade.to.chain}</p>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <p className="text-sm text-secondary-400">Amount</p>
+            <p className="font-semibold text-lg">{trade.amount.toLocaleString()}</p>
+          </div>
+          <div>
+            <p className="text-sm text-secondary-400">Profit</p>
+            <p className="font-semibold text-lg text-green-400">{trade.profit}%</p>
+          </div>
         </div>
         <div>
-          <p className="text-sm text-gray-500">Amount</p>
-          <p className="font-semibold">{trade.amount.toLocaleString()}</p>
-        </div>
-        <div>
-          <p className="text-sm text-gray-500">Profit</p>
-          <p className="font-semibold text-green-600">{trade.profit}%</p>
-        </div>
-        <div>
-          <p className="text-sm text-gray-500">Expires</p>
+          <p className="text-sm text-secondary-400">Expires</p>
           <p className="font-semibold">{new Date(trade.expiry).toLocaleString()}</p>
         </div>
       </CardContent>
       <CardFooter>
-        <Button onClick={handlePurchase} disabled={trade.status !== 'open' || isOwner} className="w-full">
-          {isOwner ? 'Your Listing' : 'Purchase Trade'}
+        <Button onClick={handlePurchase} disabled={trade.status !== 'open' || isOwner || isPurchasing} className="w-full bg-primary-500 hover:bg-primary-600 disabled:bg-secondary-600">
+          {isOwner ? 'Your Listing' : isPurchasing ? 'Processing...' : 'Purchase Trade'}
         </Button>
       </CardFooter>
     </Card>
@@ -65,13 +66,28 @@ const TradeCard: React.FC<{ trade: Trade; onPurchase: (tradeId: string, purchase
 
 // --- Arbitrage Page ---
 export default function Arbitrage() {
-  const { trades, purchaseTrade } = useTradesStore();
-  const { address } = useAccount();
+  const { trades } = useTradesStore();
+  const { user, purchaseTrade, isProcessing, refreshTrades } = useFlow();
 
   const [assetFilter, setAssetFilter] = useState('');
   const [chainFilter, setChainFilter] = useState('');
   const [minProfit, setMinProfit] = useState('');
   const [sortBy, setSortBy] = useState('profit-desc');
+  const [purchasingId, setPurchasingId] = useState<string | null>(null);
+
+  const handlePurchase = async (tradeId: string) => {
+    if (isProcessing) return;
+    setPurchasingId(tradeId);
+    try {
+      await purchaseTrade(tradeId);
+      toast.success(`Trade #${tradeId} purchased successfully!`);
+    } catch (error) {
+      toast.error(`Failed to purchase trade #${tradeId}.`);
+      console.error(error);
+    } finally {
+      setPurchasingId(null);
+    }
+  };
 
   const openTrades = useMemo(() => {
     let filtered = trades.filter(trade => trade.status === 'open');
@@ -112,47 +128,57 @@ export default function Arbitrage() {
   }, [trades, assetFilter, chainFilter, minProfit, sortBy]);
 
   return (
-    <div className="space-y-8">
-      <h1 className="text-3xl font-bold text-center">Arbitrage Marketplace</h1>
-
-      {/* Filter and Sort Controls */}
-      <Card>
-        <CardContent className="p-4 flex flex-wrap items-center gap-4">
-          <div className="flex-grow">
-            <label htmlFor="assetFilter" className="text-sm font-medium">Filter by Asset</label>
-            <Input id="assetFilter" placeholder="e.g., WETH" value={assetFilter} onChange={e => setAssetFilter(e.target.value)} />
-          </div>
-          <div className="flex-grow">
-            <label htmlFor="chainFilter" className="text-sm font-medium">Filter by Chain</label>
-            <Input id="chainFilter" placeholder="e.g., Arbitrum" value={chainFilter} onChange={e => setChainFilter(e.target.value)} />
-          </div>
-          <div className="flex-grow">
-            <label htmlFor="minProfit" className="text-sm font-medium">Min Profit (%)</label>
-            <Input id="minProfit" type="number" placeholder="e.g., 1.5" value={minProfit} onChange={e => setMinProfit(e.target.value)} />
-          </div>
-          <div className="flex-grow">
-            <label htmlFor="sortBy" className="text-sm font-medium">Sort By</label>
-            <select id="sortBy" value={sortBy} onChange={e => setSortBy(e.target.value)} className="w-full p-2 border rounded-md">
-              <option value="profit-desc">Highest Profit</option>
-              <option value="amount-desc">Largest Amount</option>
-              <option value="expiry-asc">Nearest Expiry</option>
-            </select>
-          </div>
+    <div className="container mx-auto p-4">
+      <Card className="mb-6 bg-secondary-900 border-secondary-700 text-white">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Filter & Sort Opportunities</CardTitle>
+          <Button onClick={refreshTrades} disabled={isProcessing}>
+            {isProcessing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        </CardHeader>
+        <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Input
+            placeholder="Filter by asset (e.g., FLOW)"
+            value={assetFilter}
+            onChange={(e) => setAssetFilter(e.target.value)}
+            className="bg-secondary-800 text-white placeholder-secondary-400"
+          />
+          <Input
+            placeholder="Filter by chain (e.g., Flow)"
+            value={chainFilter}
+            onChange={(e) => setChainFilter(e.target.value)}
+            className="bg-secondary-800 text-white placeholder-secondary-400"
+          />
+          <Input
+            placeholder="Min profit percentage (e.g., 1.5)"
+            type="number"
+            value={minProfit}
+            onChange={(e) => setMinProfit(e.target.value)}
+            className="bg-secondary-800 text-white placeholder-secondary-400"
+          />
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="bg-secondary-800 text-white border-secondary-600 rounded-md p-2"
+          >
+            <option value="profit-desc">Highest Profit</option>
+            <option value="amount-desc">Largest Amount</option>
+            <option value="expiry-asc">Nearest Expiry</option>
+          </select>
         </CardContent>
       </Card>
 
-      {openTrades.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {openTrades.map(trade => (
-            <TradeCard key={trade.id} trade={trade} onPurchase={purchaseTrade} currentAccount={address as string | undefined} />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12">
-          <p className="text-lg text-gray-500">No open trades available at the moment.</p>
-          <p className="text-sm text-gray-400">Check back later or create a new trade!</p>
-        </div>
-      )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {openTrades.map((trade) => (
+          <TradeCard 
+            key={trade.id} 
+            trade={trade} 
+            onPurchase={handlePurchase} 
+            currentUserAddr={user?.addr}
+            isPurchasing={purchasingId === trade.id}
+          />
+        ))}
+      </div>
     </div>
   );
 }
