@@ -1,59 +1,92 @@
 import { useState } from 'react';
+import { Button } from "./ui/Button";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/Card";
+import { Input } from "./ui/Input";
+import { Select } from "./ui/Select";
 
-export function TradeForm({ onTrade }: { onTrade: (params: { fromToken: string; toToken: string; amount: string; chain: string }) => void }) {
-  const [fromToken, setFromToken] = useState('ETH');
-  const [toToken, setToToken] = useState('USDC');
-  const [amount, setAmount] = useState('');
-  const [chain, setChain] = useState('Ethereum');
+const supportedAssets = ["FLOW", "ETH", "BTC", "USDC", "USDT"];
+const supportedChains = ["Flow", "Ethereum"];
+
+export interface TradeFormState {
+  fromAsset: string;
+  fromChain: string;
+  toAsset: string;
+  toChain: string;
+  amount: string;
+  expiry: string;
+}
+
+interface TradeFormProps {
+  onSubmit: (trade: TradeFormState) => void;
+  isProcessing: boolean;
+}
+
+export function TradeForm({ onSubmit, isProcessing }: TradeFormProps) {
+  const [trade, setTrade] = useState<TradeFormState>({
+    fromAsset: 'FLOW',
+    fromChain: 'Flow',
+    toAsset: 'ETH',
+    toChain: 'Ethereum',
+    amount: '0.0',
+    expiry: new Date(Date.now() + 3600 * 1000).toISOString().slice(0, 16), // Default to 1 hour from now
+  });
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setTrade(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSubmit(trade);
+  };
 
   return (
-    <form
-      className="flex flex-col md:flex-row gap-4 items-end mb-6"
-      onSubmit={e => {
-        e.preventDefault();
-        onTrade({ fromToken, toToken, amount, chain });
-      }}
-    >
-      <input
-        className="rounded border border-secondary-700 bg-secondary-900 text-white px-3 py-2 w-32 text-center"
-        value={fromToken}
-        onChange={e => setFromToken(e.target.value)}
-        placeholder="From Token"
-        required
-      />
-      <input
-        className="rounded border border-secondary-700 bg-secondary-900 text-white px-3 py-2 w-32 text-center"
-        value={toToken}
-        onChange={e => setToToken(e.target.value)}
-        placeholder="To Token"
-        required
-      />
-      <input
-        className="rounded border border-secondary-700 bg-secondary-900 text-white px-3 py-2 w-32 text-center"
-        value={amount}
-        onChange={e => setAmount(e.target.value)}
-        placeholder="Amount"
-        type="number"
-        min="0"
-        required
-      />
-      <select
-        className="rounded border border-secondary-700 bg-secondary-900 text-white px-3 py-2 w-36 text-center"
-        value={chain}
-        onChange={e => setChain(e.target.value)}
-        required
-      >
-        <option value="Ethereum">Ethereum</option>
-        <option value="Arbitrum">Arbitrum</option>
-        <option value="Sui">Sui</option>
-        <option value="Solana">Solana</option>
-      </select>
-      <button
-        type="submit"
-        className="px-6 py-2 rounded-lg bg-primary-400 text-white font-bold hover:bg-primary-500 transition drop-shadow"
-      >
-        Trade
-      </button>
-    </form>
+    <Card className="w-full max-w-2xl mx-auto bg-gray-900 border-gray-700">
+      <CardHeader>
+        <CardTitle className="text-center text-2xl text-white">Create a New Arbitrage Trade on Flow</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-2">
+              <label htmlFor="fromAsset" className="text-sm font-medium text-gray-300">From Asset</label>
+              <Select name="fromAsset" value={trade.fromAsset} onChange={handleChange}>
+                {supportedAssets.map(asset => <option key={asset} value={asset} className="bg-gray-800 text-white">{asset}</option>)}
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="fromChain" className="text-sm font-medium text-gray-300">From Chain</label>
+              <Select name="fromChain" value={trade.fromChain} onChange={handleChange}>
+                {supportedChains.map(chain => <option key={chain} value={chain} className="bg-gray-800 text-white">{chain}</option>)}
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="toAsset" className="text-sm font-medium text-gray-300">To Asset</label>
+              <Select name="toAsset" value={trade.toAsset} onChange={handleChange}>
+                {supportedAssets.map(asset => <option key={asset} value={asset} className="bg-gray-800 text-white">{asset}</option>)}
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="toChain" className="text-sm font-medium text-gray-300">To Chain</label>
+              <Select name="toChain" value={trade.toChain} onChange={handleChange}>
+                {supportedChains.map(chain => <option key={chain} value={chain} className="bg-gray-800 text-white">{chain}</option>)}
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <label htmlFor="amount" className="text-sm font-medium text-gray-300">Amount to Execute</label>
+              <Input name="amount" type="number" value={trade.amount} onChange={handleChange} placeholder="e.g., 10.5" />
+            </div>
+            <div className="md:col-span-2 space-y-2">
+              <label htmlFor="expiry" className="text-sm font-medium text-gray-300">Expiry Time</label>
+              <Input name="expiry" type="datetime-local" value={trade.expiry} onChange={handleChange} />
+            </div>
+          </div>
+          <Button type="submit" className="w-full" disabled={isProcessing}>
+            {isProcessing ? 'Processing...' : 'Create Trade'}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

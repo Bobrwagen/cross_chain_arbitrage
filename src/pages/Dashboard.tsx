@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { useTradesStore, Trade } from '../hooks/useTradesStore';
 import { useFlow } from '../hooks/useFlow';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
 import { DollarSign, Hash, Zap, Clock } from 'lucide-react';
+import toast from 'react-hot-toast';
 
 // --- Stat Card Component ---
 const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode; description: string }> = ({ title, value, icon, description }) => (
@@ -22,7 +23,7 @@ const StatCard: React.FC<{ title: string; value: string; icon: React.ReactNode; 
 
 // --- Recent Trade Row ---
 const RecentTradeRow: React.FC<{ trade: Trade }> = ({ trade }) => (
-    <div className="grid grid-cols-5 gap-4 items-center py-3 px-4 hover:bg-secondary-800 rounded-lg transition-colors">
+    <div className="grid grid-cols-4 gap-4 items-center py-3 px-4 hover:bg-secondary-800 rounded-lg transition-colors">
         <div className="font-mono text-sm">#{trade.id}</div>
         <div>
             <span className={`px-2 py-1 rounded-full text-xs font-semibold ${trade.status === 'open' ? 'bg-green-500/20 text-green-400' : 'bg-blue-500/20 text-blue-400'}`}>
@@ -30,8 +31,7 @@ const RecentTradeRow: React.FC<{ trade: Trade }> = ({ trade }) => (
             </span>
         </div>
         <div className="font-semibold">{trade.amount.toLocaleString()} {trade.from.asset}</div>
-        <div className="text-green-400 font-semibold">{trade.profit}%</div>
-        <div className="text-right text-secondary-400 text-sm">{new Date(trade.expiry).toLocaleDateString()}</div>
+        <div className="text-right text-secondary-400 text-sm ml-4">{new Date(trade.expiry).toLocaleDateString()}</div>
     </div>
 );
 
@@ -40,26 +40,47 @@ export default function Dashboard() {
   const { address } = useAccount();
   const { trades } = useTradesStore();
   const { isProcessing, refreshTrades } = useFlow();
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
-  // --- Mock/Placeholder Data ---
-  // In the future, this data will come from the Walrus API
-  const totalVolume = trades.reduce((sum, trade) => sum + (trade.status === 'purchased' ? trade.amount : 0), 0);
-  const openTradesCount = trades.filter(t => t.status === 'open').length;
-  const completedTradesCount = trades.filter(t => t.status === 'purchased').length;
-  const averageProfit = trades.length > 0 ? trades.reduce((sum, t) => sum + t.profit, 0) / trades.length : 0;
-  const recentTrades = [...trades].sort((a, b) => parseInt(b.id) - parseInt(a.id)).slice(0, 5);
+  // Auto-refresh trades on component mount
+  useEffect(() => {
+    const loadTrades = async () => {
+      try {
+        await refreshTrades();
+      } catch (error) {
+        console.error('Failed to load trades:', error);
+        toast.error('Failed to load trades. Using cached data.');
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+    
+    loadTrades();
+  }, [refreshTrades]);
 
   if (!address) {
     return (
       <div className="p-8 text-center">
-        <p>Please connect your wallet to view your dashboard.</p>
+        <p className="text-secondary-400">Please connect your wallet to view your dashboard.</p>
       </div>
     );
   }
 
-  const tradesCreatedByMe = trades.filter((trade) => trade.owner === address);
-  const tradesPurchasedByMe = trades.filter((trade) => trade.purchaser === address);
-  const myActiveTrades = trades.filter((trade) => trade.owner === address && trade.status === 'open');
+  if (isInitialLoading) {
+    return (
+      <div className="p-8 text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
+        <p className="text-secondary-400 mt-4">Loading dashboard data...</p>
+      </div>
+    );
+  }
+
+  // --- Calculate Dashboard Data ---
+  const totalVolume = trades.reduce((sum, trade) => sum + (trade.status === 'purchased' ? trade.amount : 0), 0);
+  const openTradesCount = trades.filter(t => t.status === 'open').length;
+  const completedTradesCount = trades.filter(t => t.status === 'purchased').length;
+  const averageAmount = trades.length > 0 ? trades.reduce((sum, t) => sum + t.amount, 0) / trades.length : 0;
+  const recentTrades = [...trades].sort((a, b) => parseInt(b.id) - parseInt(a.id)).slice(0, 5);
 
   return (
     <div className="p-8 space-y-8 animate-fade-in">
@@ -91,10 +112,10 @@ export default function Dashboard() {
           description="Trades that have been successfully executed"
         />
         <StatCard 
-          title="Average Profit"
-          value={`${averageProfit.toFixed(2)}%`}
+          title="Average Amount"
+          value={`${averageAmount.toFixed(2)} FLOW`}
           icon={<Clock className="h-4 w-4 text-secondary-400" />}
-          description="Average profit margin across all trades"
+          description="Average amount per trade"
         />
       </div>
 

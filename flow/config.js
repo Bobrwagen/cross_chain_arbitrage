@@ -1,7 +1,7 @@
 import { config } from '@onflow/fcl';
 
 config({
-  'accessNode.api': 'https://rest-testnet.onflow.org', // Flow Testnet
-  'discovery.wallet': 'https://fcl-discovery.onflow.org/testnet/authn',
-  '0xArbitrage': '0xc4ba79aaa382dc54', // Replace with your testnet account address
+  'accessNode.api': 'https://rest-mainnet.onflow.org', // Mainnet API
+  'discovery.wallet': 'https://fcl-discovery.onflow.org/authn', // Mainnet Wallet Discovery
+  '0xArbitrage': '0x68b5645abcff1008' // Mainnet contract address
 });

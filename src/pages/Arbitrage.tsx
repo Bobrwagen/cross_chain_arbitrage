@@ -1,68 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useTradesStore, Trade } from '../hooks/useTradesStore';
 import { useFlow } from '../hooks/useFlow';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '../components/ui/Card';
+import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/Card';
 import { Button } from '../components/ui/Button';
-import { Badge } from '../components/ui/Badge';
+import { Select } from '../components/ui/Select';
 import toast from 'react-hot-toast';
 import { Input } from '../components/ui/Input';
-
-// --- Trade Card Component ---
-const TradeCard: React.FC<{ trade: Trade; onPurchase: (tradeId: string) => void; currentUserAddr: string | undefined; isPurchasing: boolean }> = ({ trade, onPurchase, currentUserAddr, isPurchasing }) => {
-  const handlePurchase = () => {
-    if (!currentUserAddr) {
-      toast.error('Please connect your Flow wallet to purchase a trade.');
-      return;
-    }
-    if (trade.owner.toLowerCase() === currentUserAddr.toLowerCase()) {
-        toast.error("You cannot purchase your own trade.");
-        return;
-    }
-    onPurchase(trade.id);
-  };
-
-  const isOwner = currentUserAddr && trade.owner.toLowerCase() === currentUserAddr.toLowerCase();
-
-  return (
-    <Card className="flex flex-col justify-between h-full bg-secondary-800 border-secondary-700 text-white shadow-lg rounded-lg transition-transform hover:scale-105">
-      <CardHeader>
-        <CardTitle className="flex justify-between items-center">
-          <span className="font-bold text-xl">Trade #{trade.id}</span>
-          <Badge variant={trade.status === 'open' ? 'success' : 'destructive'}>{trade.status}</Badge>
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div>
-          <p className="text-sm text-secondary-400">From</p>
-          <p className="font-semibold text-lg">{trade.from.asset} on {trade.from.chain}</p>
-        </div>
-        <div>
-          <p className="text-sm text-secondary-400">To</p>
-          <p className="font-semibold text-lg">{trade.to.asset} on {trade.to.chain}</p>
-        </div>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <p className="text-sm text-secondary-400">Amount</p>
-            <p className="font-semibold text-lg">{trade.amount.toLocaleString()}</p>
-          </div>
-          <div>
-            <p className="text-sm text-secondary-400">Profit</p>
-            <p className="font-semibold text-lg text-green-400">{trade.profit}%</p>
-          </div>
-        </div>
-        <div>
-          <p className="text-sm text-secondary-400">Expires</p>
-          <p className="font-semibold">{new Date(trade.expiry).toLocaleString()}</p>
-        </div>
-      </CardContent>
-      <CardFooter>
-        <Button onClick={handlePurchase} disabled={trade.status !== 'open' || isOwner || isPurchasing} className="w-full bg-primary-500 hover:bg-primary-600 disabled:bg-secondary-600">
-          {isOwner ? 'Your Listing' : isPurchasing ? 'Processing...' : 'Purchase Trade'}
-        </Button>
-      </CardFooter>
-    </Card>
-  );
-};
+import TradeCard from '../components/TradeCard';
 
 // --- Arbitrage Page ---
 export default function Arbitrage() {
@@ -71,23 +15,42 @@ export default function Arbitrage() {
 
   const [assetFilter, setAssetFilter] = useState('');
   const [chainFilter, setChainFilter] = useState('');
-  const [minProfit, setMinProfit] = useState('');
-  const [sortBy, setSortBy] = useState('profit-desc');
+  const [sortBy, setSortBy] = useState('amount-desc');
   const [purchasingId, setPurchasingId] = useState<string | null>(null);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [usdcGasEnabled, setUsdcGasEnabled] = useState(false);
 
-  const handlePurchase = async (tradeId: string) => {
+  // Auto-refresh trades on component mount
+  useEffect(() => {
+    const loadTrades = async () => {
+      try {
+        await refreshTrades();
+      } catch (error) {
+        console.error('Failed to load trades:', error);
+        toast.error('Failed to load trades. Using cached data.');
+      } finally {
+        setIsInitialLoading(false);
+      }
+    };
+    
+    loadTrades();
+  }, [refreshTrades]);
+
+  const handlePurchase = useCallback(async (trade: Trade) => {
     if (isProcessing) return;
-    setPurchasingId(tradeId);
+    setPurchasingId(trade.id);
     try {
-      await purchaseTrade(tradeId);
-      toast.success(`Trade #${tradeId} purchased successfully!`);
+      await purchaseTrade(trade, usdcGasEnabled);
+      const gasMessage = usdcGasEnabled ? 'Trade purchased successfully with USDC gas fees across chains!' : 'Trade purchased successfully!';
+      toast.success(`${gasMessage} Trade #${trade.id}`);
     } catch (error) {
-      toast.error(`Failed to purchase trade #${tradeId}.`);
+      const message = error instanceof Error ? error.message : `Failed to purchase trade #${trade.id}.`;
+      toast.error(message);
       console.error(error);
     } finally {
       setPurchasingId(null);
     }
-  };
+  }, [isProcessing, purchaseTrade, usdcGasEnabled]);
 
   const openTrades = useMemo(() => {
     let filtered = trades.filter(trade => trade.status === 'open');
@@ -108,14 +71,7 @@ export default function Arbitrage() {
       );
     }
 
-    if (minProfit) {
-      filtered = filtered.filter(trade => trade.profit >= parseFloat(minProfit));
-    }
-
     switch (sortBy) {
-      case 'profit-desc':
-        filtered.sort((a, b) => b.profit - a.profit);
-        break;
       case 'amount-desc':
         filtered.sort((a, b) => b.amount - a.amount);
         break;
@@ -125,18 +81,34 @@ export default function Arbitrage() {
     }
 
     return filtered;
-  }, [trades, assetFilter, chainFilter, minProfit, sortBy]);
+  }, [trades, assetFilter, chainFilter, sortBy]);
 
   return (
     <div className="container mx-auto p-4">
       <Card className="mb-6 bg-secondary-900 border-secondary-700 text-white">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Filter & Sort Opportunities</CardTitle>
-          <Button onClick={refreshTrades} disabled={isProcessing}>
-            {isProcessing ? 'Refreshing...' : 'Refresh'}
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => setUsdcGasEnabled(!usdcGasEnabled)}
+              variant={usdcGasEnabled ? "primary" : "outline"}
+              className={usdcGasEnabled ? "bg-green-600 hover:bg-green-700 text-white font-bold" : "border-blue-500 text-blue-400 hover:bg-blue-500 hover:text-white"}
+            >
+              {usdcGasEnabled ? '✓ USDC Gas Active' : '� Use USDC for Gas Fees'}
+            </Button>
+            <Button onClick={refreshTrades} disabled={isProcessing}>
+              {isProcessing ? 'Refreshing...' : 'Refresh'}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {usdcGasEnabled && (
+            <div className="md:col-span-full mb-4 p-3 bg-green-900/20 border border-green-500/30 rounded-lg">
+              <p className="text-sm text-green-400">
+                � USDC Gas Fees Active: Transaction fees will be paid using USDC stablecoin instead of native cryptocurrencies (FLOW, ETH, etc.) across all supported chains.
+              </p>
+            </div>
+          )}
           <Input
             placeholder="Filter by asset (e.g., FLOW)"
             value={assetFilter}
@@ -149,35 +121,40 @@ export default function Arbitrage() {
             onChange={(e) => setChainFilter(e.target.value)}
             className="bg-secondary-800 text-white placeholder-secondary-400"
           />
-          <Input
-            placeholder="Min profit percentage (e.g., 1.5)"
-            type="number"
-            value={minProfit}
-            onChange={(e) => setMinProfit(e.target.value)}
-            className="bg-secondary-800 text-white placeholder-secondary-400"
-          />
-          <select
+          <Select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="bg-secondary-800 text-white border-secondary-600 rounded-md p-2"
           >
-            <option value="profit-desc">Highest Profit</option>
             <option value="amount-desc">Largest Amount</option>
             <option value="expiry-asc">Nearest Expiry</option>
-          </select>
+          </Select>
         </CardContent>
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {openTrades.map((trade) => (
-          <TradeCard 
-            key={trade.id} 
-            trade={trade} 
-            onPurchase={handlePurchase} 
-            currentUserAddr={user?.addr}
-            isPurchasing={purchasingId === trade.id}
-          />
-        ))}
+        {isInitialLoading ? (
+          <div className="col-span-full text-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500 mx-auto"></div>
+            <p className="text-secondary-400 mt-4">Loading arbitrage opportunities...</p>
+          </div>
+        ) : openTrades.length === 0 ? (
+          <div className="col-span-full text-center py-12">
+            <p className="text-secondary-400 text-lg">No arbitrage opportunities found.</p>
+            <Button onClick={refreshTrades} className="mt-4" disabled={isProcessing}>
+              {isProcessing ? 'Refreshing...' : 'Refresh'}
+            </Button>
+          </div>
+        ) : (
+          openTrades.map((trade) => (
+            <TradeCard 
+              key={trade.id} 
+              trade={trade} 
+              onPurchase={handlePurchase} 
+              currentUserAddr={user?.addr}
+              isPurchasing={purchasingId === trade.id}
+            />
+          ))
+        )}
       </div>
     </div>
   );

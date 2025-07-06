@@ -1,97 +1,90 @@
-pub contract Arbitrage {
+import FungibleToken from 0xf233dcee88fe0abe
 
-    pub event TradeCreated(id: UInt64, owner: Address, fromAsset: String, fromChain: String, toAsset: String, toChain: String, amount: UFix64, profit: UFix64, expiry: UFix64)
-    pub event TradePurchased(id: UInt64, purchaser: Address)
+access(all) contract Arbitrage {
 
-    pub struct Trade {
-        pub let id: UInt64
-        pub let owner: Address
-        pub let fromAsset: String
-        pub let fromChain: String
-        pub let toAsset: String
-        pub let toChain: String
-        pub let amount: UFix64
-        pub let profit: UFix64 // Percentage
-        pub let expiry: UFix64 // Timestamp
-        pub var status: String
-        pub var purchaser: Address?
+    // --- Events ---
+    access(all) event TradeCreated(id: UInt64, owner: Address, fromToken: String, toToken: String, fromAmount: UFix64, toAmount: UFix64)
+    access(all) event TradeCompleted(id: UInt64, purchaser: Address)
+    access(all) event TradeCancelled(id: UInt64)
 
-        init(id: UInt64, owner: Address, fromAsset: String, fromChain: String, toAsset: String, toChain: String, amount: UFix64, profit: UFix64, expiry: UFix64) {
+    // --- Data Structures ---
+    access(all) struct TradeInfo {
+        access(all) let id: UInt64
+        access(all) let owner: Address
+        access(all) let fromToken: String
+        access(all) let toToken: String
+        access(all) let fromAmount: UFix64
+        access(all) let toAmount: UFix64
+        access(all) let created: UFix64
+
+        init(id: UInt64, owner: Address, fromToken: String, toToken: String, fromAmount: UFix64, toAmount: UFix64) {
             self.id = id
             self.owner = owner
-            self.fromAsset = fromAsset
-            self.fromChain = fromChain
-            self.toAsset = toAsset
-            self.toChain = toChain
-            self.amount = amount
-            self.profit = profit
-            self.expiry = expiry
-            self.status = "open"
-            self.purchaser = nil
+            self.fromToken = fromToken
+            self.toToken = toToken
+            self.fromAmount = fromAmount
+            self.toAmount = toAmount
+            self.created = getCurrentBlock().timestamp
         }
     }
 
-    pub var trades: {UInt64: Trade}
-    pub var nextTradeId: UInt64
+    // --- Contract State ---
+    access(all) var trades: {UInt64: TradeInfo}
+    access(all) var nextTradeId: UInt64
+
+    // --- Core Functions ---
+
+    access(all) fun createTrade(fromToken: String, toToken: String, fromAmount: UFix64, toAmount: UFix64, creator: Address) {
+        let tradeId = self.nextTradeId
+        
+        let tradeInfo = TradeInfo(
+            id: tradeId,
+            owner: creator,
+            fromToken: fromToken,
+            toToken: toToken,
+            fromAmount: fromAmount,
+            toAmount: toAmount
+        )
+
+        self.trades[tradeId] = tradeInfo
+        self.nextTradeId = self.nextTradeId + 1
+
+        emit TradeCreated(id: tradeId, owner: creator, fromToken: fromToken, toToken: toToken, fromAmount: fromAmount, toAmount: toAmount)
+    }
+
+    access(all) fun completeTrade(tradeId: UInt64, purchaser: Address) {
+        pre {
+            self.trades[tradeId] != nil: "Trade not found"
+        }
+        
+        self.trades.remove(key: tradeId)
+        emit TradeCompleted(id: tradeId, purchaser: purchaser)
+    }
+
+    access(all) fun cancelTrade(tradeId: UInt64) {
+        pre {
+            self.trades[tradeId] != nil: "Trade not found"
+        }
+        
+        self.trades.remove(key: tradeId)
+        emit TradeCancelled(id: tradeId)
+    }
+
+    // --- Public Getters ---
+    access(all) view fun getTrade(id: UInt64): TradeInfo? {
+        return self.trades[id]
+    }
+
+    access(all) view fun getOpenTradeIDs(): [UInt64] {
+        return self.trades.keys
+    }
+
+    access(all) view fun getAllTrades(): {UInt64: TradeInfo} {
+        return self.trades
+    }
 
     init() {
         self.trades = {}
-        self.nextTradeId = 1
-    }
-
-    pub fun createTrade(fromAsset: String, fromChain: String, toAsset: String, toChain: String, amount: UFix64, profit: UFix64, expiry: UFix64): UInt64 {
-        let newTrade = Trade(
-            id: self.nextTradeId,
-            owner: self.account.address,
-            fromAsset: fromAsset,
-            fromChain: fromChain,
-            toAsset: toAsset,
-            toChain: toChain,
-            amount: amount,
-            profit: profit,
-            expiry: expiry
-        )
-        self.trades[newTrade.id] = newTrade
-        self.nextTradeId = self.nextTradeId + 1
-
-        emit TradeCreated(
-            id: newTrade.id,
-            owner: newTrade.owner,
-            fromAsset: newTrade.fromAsset,
-            fromChain: newTrade.fromChain,
-            toAsset: newTrade.toAsset,
-            toChain: newTrade.toChain,
-            amount: newTrade.amount,
-            profit: newTrade.profit,
-            expiry: newTrade.expiry
-        )
-
-        return newTrade.id
-    }
-
-    pub fun purchaseTrade(tradeId: UInt64, purchaser: Address) {
-        pre {
-            self.trades[tradeId] != nil: "Trade does not exist"
-            self.trades[tradeId]!.status == "open": "Trade is not open"
-        }
-        self.trades[tradeId]!.status = "purchased"
-        self.trades[tradeId]!.purchaser = purchaser
-
-        emit TradePurchased(id: tradeId, purchaser: purchaser)
-    }
-
-    pub fun getTrade(tradeId: UInt64): Trade? {
-        return self.trades[tradeId]
-    }
-
-    pub fun getOpenTrades(): [Trade] {
-        let openTrades: [Trade] = []
-        for id in self.trades.keys {
-            let trade = self.trades[id]!
-            if trade.status == "open" {
-                openTrades.append(trade)
-            }
-        }
-        return openTrades
+        self.nextTradeId = 0
     }
 }

@@ -24,14 +24,12 @@ const ChainBalanceCard = ({ chainId, balances }: { chainId: number; balances: Ba
   return (
     <div className="rounded-lg bg-secondary-800 p-6 border border-secondary-700 space-y-4">
       <div className="flex items-center space-x-3">
-        <img src={chain.logoURI} alt={chain.name} className="h-8 w-8 rounded-full" />
         <h3 className="text-xl font-bold text-white">{chain.name}</h3>
       </div>
       <div className="space-y-2">
         {balances.map((b) => (
           <div key={b.symbol} className="flex items-center justify-between text-sm">
             <div className="flex items-center space-x-2">
-              <img src={b.logoURI} alt={b.name} className="h-5 w-5 rounded-full" />
               <span className="text-secondary-300">{b.symbol}</span>
             </div>
             <span className="font-mono text-white">{parseFloat(b.formatted).toFixed(5)}</span>
@@ -74,7 +72,7 @@ export default function Portfolio() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="p-8 space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-white">Portfolio</h1>

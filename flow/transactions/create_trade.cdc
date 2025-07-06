@@ -1,19 +1,24 @@
-import Arbitrage from 0xc4ba79aaa382dc54
+import FungibleToken from 0xf233dcee88fe0abe
+import Arbitrage from 0x68b5645abcff1008
 
-transaction(fromAsset: String, fromChain: String, toAsset: String, toChain: String, amount: UFix64, profit: UFix64, expiry: UFix64) {
+// Creates a new trade entry in the contract
+transaction(fromTokenName: String, fromAmount: UFix64, toTokenName: String, toAmount: UFix64) {
+    
+    let signerAddress: Address
 
-    prepare(signer: AuthAccount) {
+    prepare(signer: auth(Storage) &Account) {
+        // Store the signer's address for use in execute
+        self.signerAddress = signer.address
     }
 
     execute {
+        // Call the contract to create the trade
         Arbitrage.createTrade(
-            fromAsset: fromAsset,
-            fromChain: fromChain,
-            toAsset: toAsset,
-            toChain: toChain,
-            amount: amount,
-            profit: profit,
-            expiry: expiry
+            fromToken: fromTokenName,
+            toToken: toTokenName,
+            fromAmount: fromAmount,
+            toAmount: toAmount,
+            creator: self.signerAddress
         )
     }
 }

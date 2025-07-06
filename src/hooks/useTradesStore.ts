@@ -1,44 +1,32 @@
 import { create } from 'zustand';
 
+// Represents one side of a trade (e.g., what you give or what you get).
+export interface TradeEntity {
+  asset: string;
+  chain: string;
+  amount: number;
+}
+
+// The core Trade object, matching the data structure from our Flow script.
 export interface Trade {
   id: string;
   owner: string; // Address of the trade creator
-  from: {
-    asset: string;
-    chain: string;
-  };
-  to: {
-    asset: string;
-    chain: string;
-  };
-  amount: number;
-  profit: number; // in percentage
-  expiry: number; // timestamp
-  status: 'open' | 'filled' | 'expired' | 'purchased';
-  purchaser?: string;
+  from: TradeEntity;
+  to: TradeEntity;
+  status: 'open' | 'purchased' | 'cancelled'; // Simplified status based on contract state
+  purchaser?: string | null;
+  expiry: number; // Timestamp when the trade expires
+  amount: number; // Total amount (from.amount)
 }
 
 interface TradesStore {
   trades: Trade[];
-  addTrade: (trade: Omit<Trade, 'id' | 'status'>) => void;
-  purchaseTrade: (tradeId: string, purchaser: string) => void;
   setTrades: (trades: Trade[]) => void;
 }
 
+// This store now simply holds the state. All logic for fetching and updating
+// trades is handled in the useFlow hook.
 export const useTradesStore = create<TradesStore>((set) => ({
-  trades: [], // Start with an empty array
-  addTrade: (trade) =>
-    set((state) => ({
-      trades: [
-        ...state.trades,
-        { ...trade, id: (state.trades.length + 1).toString(), status: 'open' },
-      ],
-    })),
-  purchaseTrade: (tradeId, purchaser) =>
-    set((state) => ({
-      trades: state.trades.map((trade) =>
-        trade.id === tradeId ? { ...trade, status: 'purchased', purchaser } : trade
-      ),
-    })),
+  trades: [],
   setTrades: (newTrades) => set({ trades: newTrades }),
 }));

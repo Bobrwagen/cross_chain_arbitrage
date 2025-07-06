@@ -1,5 +1,15 @@
-import Arbitrage from 0xc4ba79aaa382dc54
+import FungibleToken from 0xf233dcee88fe0abe
+import Arbitrage from 0x68b5645abcff1008
 
-pub fun main(): [Arbitrage.Trade] {
-    return Arbitrage.getOpenTrades()
+access(all) fun main(): [Arbitrage.TradeInfo] {
+    let allTrades = Arbitrage.getAllTrades()
+    let tradeList: [Arbitrage.TradeInfo] = []
+    
+    for tradeId in allTrades.keys {
+        if let trade = allTrades[tradeId] {
+            tradeList.append(trade)
+        }
+    }
+    
+    return tradeList
 }

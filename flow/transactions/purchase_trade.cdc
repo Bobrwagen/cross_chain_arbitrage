@@ -1,11 +1,20 @@
-import Arbitrage from 0xc4ba79aaa382dc54
+import Arbitrage from 0x68b5645abcff1008
 
-transaction(tradeId: UInt64) {
+// Purchases an open trade - simplified version for demo
+transaction(tradeId: UInt64, paymentTokenName: String, paymentAmount: UFix64, receiverTokenName: String) {
+    
+    let signerAddress: Address
 
-    prepare(signer: AuthAccount) {
+    prepare(signer: auth(Storage) &Account) {
+        // Store the signer's address for use in execute
+        self.signerAddress = signer.address
     }
 
     execute {
-        Arbitrage.purchaseTrade(tradeId: tradeId, purchaser: signer.address)
+        // Call the contract to complete the trade
+        Arbitrage.completeTrade(
+            tradeId: tradeId,
+            purchaser: self.signerAddress
+        )
     }
 }

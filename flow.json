@@ -1,0 +1,39 @@
+{
+	"contracts": {
+		"Arbitrage": "./flow/contracts/Arbitrage.cdc"
+	},
+	"networks": {
+		"emulator": "http://127.0.0.1:3569",
+		"mainnet": "https://rest-mainnet.onflow.org",
+		"testnet": "https://rest-testnet.onflow.org"
+	},
+	"accounts": {
+		"emulator-account": {
+			"address": "f8d6e0586b0a20c7",
+			"key": "d552a8b06232c81285f3685345c152b4e529bf5a8545b212b8835f7f2a045858"
+		},
+		"mainnet-account": {
+			"address": "0x17078ed5acad3d41",
+			"key": "4cb0bbdcccfdcf0017ac5dcfcae8304850cb47a08fa3a904b2b79929c3cfd2df"
+		},
+		"raglibol": { 
+			"address": "0x68b5645abcff1008",
+			"key": {
+				"type": "file",
+				"location": "raglibol.pkey"
+			}
+		}
+	},
+	"deployments": {
+		"mainnet": {
+			"raglibol": [
+				"Arbitrage"
+			]
+		},
+		"testnet": {
+			"mainnet-account": [
+				"Arbitrage"
+			]
+		}
+	}
+}
