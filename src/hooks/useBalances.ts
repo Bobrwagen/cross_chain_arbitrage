@@ -1,56 +1,88 @@
 import { useAccount } from 'wagmi';
 import { useEffect, useState } from 'react';
-import { createPublicClient, http, formatEther } from 'viem';
+import { createPublicClient, http, formatUnits, erc20Abi, Address } from 'viem';
+import { CHAINS, Chain, Token } from '../lib/tokens';
 
-const sepoliaClient = createPublicClient({
-  chain: {
-    id: 11155111,
-    name: 'Sepolia',
-    network: 'sepolia',
-    nativeCurrency: { name: 'SepoliaETH', symbol: 'ETH', decimals: 18 },
-    rpcUrls: {
-      default: { http: ['https://rpc.sepolia.org'] },
-      public: { http: ['https://rpc.sepolia.org'] },
-    },
-  },
-  transport: http(),
-});
-const arbitrumClient = createPublicClient({
-  chain: {
-    id: 42161,
-    name: 'Arbitrum One',
-    network: 'arbitrum',
-    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-    rpcUrls: {
-      default: { http: ['https://arb1.arbitrum.io/rpc'] },
-      public: { http: ['https://arb1.arbitrum.io/rpc'] },
-    },
-  },
-  transport: http(),
-});
+export interface Balance extends Token {
+  balance: string;
+  formatted: string;
+  chain: Chain;
+}
 
 export function useBalances() {
   const { address, isConnected } = useAccount();
-  const [ethBalance, setEthBalance] = useState<string>('0.0');
-  const [arbBalance, setArbBalance] = useState<string>('0.0');
+  const [balances, setBalances] = useState<Balance[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (isConnected && address) {
-      sepoliaClient.getBalance({ address }).then((bal) => setEthBalance(formatEther(bal)));
-      arbitrumClient.getBalance({ address }).then((bal) => setArbBalance(formatEther(bal)));
-    } else {
-      setEthBalance('0.0');
-      setArbBalance('0.0');
-    }
+    const fetchBalances = async () => {
+      if (!isConnected || !address) {
+        setBalances([]);
+        setLoading(false);
+        return;
+      }
+
+      setLoading(true);
+      const allBalances: Balance[] = [];
+
+      for (const chain of Object.values(CHAINS)) {
+        try {
+          const client = createPublicClient({
+            chain: chain.wagmiChain,
+            transport: http(),
+          });
+
+          // Fetch native balance
+          const nativeBalance = await client.getBalance({ address });
+          allBalances.push({
+            name: chain.wagmiChain.nativeCurrency.name,
+            symbol: chain.wagmiChain.nativeCurrency.symbol,
+            decimals: chain.wagmiChain.nativeCurrency.decimals,
+            logoURI: chain.logoURI,
+            balance: nativeBalance.toString(),
+            formatted: `${formatUnits(nativeBalance, chain.wagmiChain.nativeCurrency.decimals)} ${
+              chain.wagmiChain.nativeCurrency.symbol
+            }`,
+            chain,
+          });
+
+          // Fetch token balances
+          const tokenContracts = Object.values(chain.tokens).map((token) => ({
+            address: token.address,
+            abi: erc20Abi,
+            functionName: 'balanceOf',
+            args: [address as Address],
+          }));
+
+          if (tokenContracts.length > 0) {
+            const results = await client.multicall({ contracts: tokenContracts, allowFailure: true });
+
+            Object.values(chain.tokens).forEach((token, i) => {
+              const result = results[i];
+              if (result.status === 'success') {
+                const balance = result.result as bigint;
+                if (balance > 0) {
+                  allBalances.push({
+                    ...token,
+                    balance: balance.toString(),
+                    formatted: `${formatUnits(balance, token.decimals)} ${token.symbol}`,
+                    chain,
+                  });
+                }
+              }
+            });
+          }
+        } catch (error) {
+          console.error(`Failed to fetch balances for ${chain.name}`, error);
+        }
+      }
+
+      setBalances(allBalances);
+      setLoading(false);
+    };
+
+    fetchBalances();
   }, [isConnected, address]);
 
-  const suiBalance = isConnected ? '0.0 SUI' : 'Connect wallet to display amount';
-  const solanaBalance = isConnected ? '0.0 SOL' : 'Connect wallet to display amount';
-
-  return [
-    { name: 'Ethereum', balance: isConnected ? `${ethBalance} ETH` : 'Connect wallet to display amount' },
-    { name: 'Arbitrum', balance: isConnected ? `${arbBalance} ETH` : 'Connect wallet to display amount' },
-    { name: 'Sui', balance: suiBalance },
-    { name: 'Solana', balance: solanaBalance },
-  ];
+  return { balances, loading };
 }

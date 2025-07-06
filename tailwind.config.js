@@ -7,31 +7,33 @@ export default {
   theme: {
     extend: {
       colors: {
-        border: '#E0E0E0',
-        ring: '#E0E0E0',
+        border: '#2e3b4e', // Darker border for dark theme
+        ring: '#06b6d4',   // Using primary color for focus rings
         primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+          50: '#ecfeff',
+          100: '#cffafe',
+          200: '#a5f3fc',
+          300: '#67e8f9',
+          400: '#22d3ee',
+          500: '#06b6d4', // Main accent color (cyan)
+          600: '#0891b2',
+          700: '#0e7490',
+          800: '#155e75',
+          900: '#164e63',
+          950: '#083344',
         },
         secondary: {
           50: '#f8fafc',
           100: '#f1f5f9',
           200: '#e2e8f0',
-          300: '#cbd5e1',
-          400: '#94a3b8',
+          300: '#cbd5e1', // Light text
+          400: '#94a3b8', // Muted text
           500: '#64748b',
           600: '#475569',
-          700: '#334155',
-          800: '#1e293b',
-          900: '#0f172a',
+          700: '#334155', // Card borders
+          800: '#1e293b', // Card backgrounds
+          900: '#0f172a', // Main background
+          950: '#020617', // Sidebar background
         },
         success: {
           50: '#f0fdf4',
@@ -92,4 +94,4 @@ export default {
     },
   },
   plugins: [],
-} 
+}
